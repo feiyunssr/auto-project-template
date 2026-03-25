@@ -60,6 +60,22 @@
 3. **编写业务**: 在预留的 `apps/` 目录中填充你具体的 AI 业务流逻辑与模型调用。
 4. **一键运行**: 启动服务后，模板会自动调用注册接口向 Hub 报到并在 Hub Dashboard 中亮起。
 
+## 本地验证
+
+后端建议使用仓库内虚拟环境执行检查：
+- `python3 -m venv .venv`
+- `.venv/bin/pip install -e '.[dev]'`
+- `.venv/bin/python -m ruff format --check .`
+- `.venv/bin/python -m ruff check .`
+- `.venv/bin/python -m pytest`
+- `.venv/bin/python -m uvicorn apps.backend.main:app --reload`
+
+前端检查命令：
+- `cd apps/frontend && npm install`
+- `npm run typecheck`
+- `npm run lint`
+- `npm run build`
+
 ## 愿景与目标
 
 通过将这五大部分"模板化"，我们能够将内部新 AI 工具的立项及基础搭建周期从周级缩短至天级。开发者不再需要纠结于"登录怎么写"、"监控怎么做"或"页面怎么排版"，而是将全部精力集中在 **AI 业务逻辑及其对应的核心技术栈** 上。
