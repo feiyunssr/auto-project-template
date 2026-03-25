@@ -20,9 +20,16 @@ class Settings(BaseSettings):
 
     hub_api_url: str | None = None
     hub_service_key: str | None = None
+    require_hub_auth: bool = False
+    dev_hub_user_id: str = "local-dev-user"
+    dev_hub_user_name: str = "Local Operator"
+    dev_hub_role: str = "operator"
     service_public_base_url: str = "http://localhost:8000"
     cors_allowed_origins: str = (
         "http://127.0.0.1:4173,http://localhost:4173,http://127.0.0.1:5173,http://localhost:5173"
+    )
+    cors_allowed_origin_regex: str = (
+        r"^https?://(localhost|127\.0\.0\.1|\[::1\]|\d{1,3}(?:\.\d{1,3}){3}|\[[0-9a-fA-F:]+\])(?::\d+)?$"
     )
     service_key: str = "auto-project-template"
     service_display_name: str = "AI Auto Hub Service Template"

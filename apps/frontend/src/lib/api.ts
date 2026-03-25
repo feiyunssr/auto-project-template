@@ -1,6 +1,18 @@
 import type { AiProfile, ApiError, HealthResponse, TaskDetail, TaskSummary } from "./types";
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8000";
+function formatHostForUrl(hostname: string): string {
+  return hostname.includes(":") ? `[${hostname}]` : hostname;
+}
+
+function getDefaultApiBaseUrl(): string {
+  const apiPort = import.meta.env.VITE_API_PORT ?? "8000";
+  if (typeof window === "undefined") {
+    return `http://127.0.0.1:${apiPort}`;
+  }
+  return `${window.location.protocol}//${formatHostForUrl(window.location.hostname)}:${apiPort}`;
+}
+
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? getDefaultApiBaseUrl();
 
 async function request<T>(path: string, init: RequestInit = {}, headers: Record<string, string> = {}): Promise<T> {
   const response = await fetch(`${API_BASE_URL}${path}`, {

@@ -63,3 +63,32 @@
 - 状态：`DONE_WITH_CONCERNS`
 - 结论：你要求的 4 个重点项均已完成验证，且本轮暴露的 3 个真实联调问题已修复并复验通过。
 - 剩余说明：Hub 真正注册/心跳成功链路未在本轮验证，因为本地环境没有配置真实 Hub 地址与服务密钥；当前只验证了“未配置时 `/healthz` 正确降级而非误报实例死亡”。
+
+## 2026-03-25 IP 启动复验补充
+- 测试目标更新为：
+  - 后端：`http://192.168.1.242:8000`
+  - 前端：`http://192.168.1.242:5173`
+- 本轮新增发现并已修复的问题：
+  1. 前端默认 API 地址写死为 `http://localhost:8000`，从 IP 地址打开页面时会把请求错误发往浏览器所在机器的 `localhost`。
+  2. 后端默认 CORS origin 白名单不包含 `http://192.168.1.242:5173` 这类 IP 来源，导致 IP 访问场景下预检失败。
+- 本轮修复摘要：
+  - 前端 API 基地址默认改为跟随当前页面 hostname，并保留 `VITE_API_BASE_URL` 覆盖能力。
+  - 后端 CORS 默认规则扩展为支持局域网 IPv4 / IPv6 来源。
+  - 新增回归测试 `test_cors_preflight_allows_ip_frontend_origin`。
+- 复验结果：
+  - `./.venv/bin/python -m pytest tests/test_tasks.py` 通过，`10 passed`。
+  - `cd apps/frontend && npm run build` 通过。
+  - `curl http://192.168.1.242:8000/healthz` 返回 HTTP `200`，总体状态 `degraded`，退化原因仍为未配置 Hub 注册信息。
+  - `curl -I http://192.168.1.242:5173` 返回 HTTP `200 OK`。
+  - `OPTIONS /api/tasks` 携带 `Origin: http://192.168.1.242:5173` 时返回 `access-control-allow-origin: http://192.168.1.242:5173`，说明 IP 前端到 IP 后端的浏览器链路已打通。
+
+## 2026-03-25 登录校验开关复验补充
+- 本轮目标：将登录校验改为“默认禁用，但可快速重新开启”的显式开关。
+- 配置约定：
+  - 后端：`REQUIRE_HUB_AUTH`
+  - 前端：`VITE_REQUIRE_HUB_AUTH`
+  - 使用根目录脚本时，`REQUIRE_HUB_AUTH=true ./start.sh` 会自动同步前端变量。
+- 复验结果：
+  - 默认模式下执行 `./start.sh`，脚本输出 `Hub auth required: false`，无登录头访问 `GET /api/tasks` 返回 HTTP `200`，响应为 `{"items":[]}`。
+  - 开启模式下执行 `REQUIRE_HUB_AUTH=true ./start.sh`，脚本输出 `Hub auth required: true`，无登录头访问 `GET /api/tasks` 返回 HTTP `401`，错误码 `AUTH_REQUIRED`。
+  - 自动化回归已更新并通过：`./.venv/bin/python -m pytest tests/test_tasks.py` 当前为 `12 passed`。

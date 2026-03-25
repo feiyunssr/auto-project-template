@@ -133,15 +133,29 @@ def test_frontend_shaped_payload_uses_brief_as_result_source(client):
     assert detail["results"][0]["preview_text"].startswith("spring sale ad copy ::")
 
 
-def test_task_endpoints_require_hub_session(client):
+def test_task_endpoints_allow_local_access_when_hub_auth_disabled(client):
     response = client.get("/api/tasks")
+    assert response.status_code == 200, response.text
+    payload = response.json()
+    assert payload["items"] == []
+
+
+def test_task_endpoints_require_hub_session_when_hub_auth_enabled(auth_required_client):
+    response = auth_required_client.get("/api/tasks")
     assert response.status_code == 401, response.text
     payload = response.json()
     assert payload["code"] == "AUTH_REQUIRED"
 
 
-def test_ai_profile_endpoints_require_hub_session(client):
+def test_ai_profile_endpoints_allow_local_access_when_hub_auth_disabled(client):
     response = client.get("/api/settings/ai-profiles")
+    assert response.status_code == 200, response.text
+    payload = response.json()
+    assert isinstance(payload["items"], list)
+
+
+def test_ai_profile_endpoints_require_hub_session_when_hub_auth_enabled(auth_required_client):
+    response = auth_required_client.get("/api/settings/ai-profiles")
     assert response.status_code == 401, response.text
     payload = response.json()
     assert payload["code"] == "AUTH_REQUIRED"
@@ -158,6 +172,20 @@ def test_cors_preflight_allows_local_frontend_origin(client):
     )
     assert response.status_code == 200, response.text
     assert response.headers["access-control-allow-origin"] == "http://127.0.0.1:4173"
+    assert "x-hub-user-id" in response.headers["access-control-allow-headers"]
+
+
+def test_cors_preflight_allows_ip_frontend_origin(client):
+    response = client.options(
+        "/api/tasks",
+        headers={
+            "Origin": "http://192.168.1.242:5173",
+            "Access-Control-Request-Method": "POST",
+            "Access-Control-Request-Headers": "content-type,x-hub-user-id,x-hub-user-name,x-hub-role",
+        },
+    )
+    assert response.status_code == 200, response.text
+    assert response.headers["access-control-allow-origin"] == "http://192.168.1.242:5173"
     assert "x-hub-user-id" in response.headers["access-control-allow-headers"]
 
 

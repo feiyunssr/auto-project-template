@@ -141,3 +141,36 @@
   - `pytest tests/test_tasks.py` 新增 profile 级超时控制与 AI 配置接口鉴权覆盖，并已通过。
 - 当前剩余关注项：
   - 后端对 Hub 登录态仍是“信任明文身份头”模式，尚未形成签名 / token / introspection 级别的真实会话校验闭环；该风险已在审查文档中明确标注，归档时需一并说明。
+
+### 阶段 3 补充 IP 启动修复记录 (2026-03-25 08:18:00 UTC)
+- 本轮按“必须通过 `IP + 端口` 访问服务，而不是 `localhost`”的要求复验了启动链路。
+- 已定位并修复 2 个会影响 IP 访问的真实问题：
+  - 前端 `apps/frontend/src/lib/api.ts` 默认将 API 基地址写死为 `http://localhost:8000`，导致页面从 `http://<server-ip>:5173` 打开时，浏览器仍会错误请求 `localhost:8000`。
+  - 后端默认 CORS 仅放行 `localhost/127.0.0.1`，来自 `http://<server-ip>:5173` 的真实预检请求会被拦截。
+- 已完成对应修复：
+  - 前端默认 API 地址改为跟随当前访问页主机名，并保留 `VITE_API_BASE_URL` 显式覆盖能力。
+  - 后端新增 `cors_allowed_origin_regex` 默认规则，允许 `localhost`、`127.0.0.1`、局域网 IPv4 与 IPv6 开发来源访问。
+  - 新增回归测试 `test_cors_preflight_allows_ip_frontend_origin`，防止 IP 访问场景再次退化。
+- 已完成复验：
+  - `./.venv/bin/python -m pytest tests/test_tasks.py` 通过，`10 passed`。
+  - `cd apps/frontend && npm run build` 通过。
+  - 后端已用 `SERVICE_PUBLIC_BASE_URL=http://192.168.1.242:8000 ./.venv/bin/python -m uvicorn apps.backend.main:app --host 0.0.0.0 --port 8000` 成功启动。
+  - 前端已用 `npm run dev -- --host 0.0.0.0 --port 5173` 成功启动，Vite 输出 `Network: http://192.168.1.242:5173/`。
+  - 实测 `curl http://192.168.1.242:8000/healthz` 返回 `200 degraded`，`curl -I http://192.168.1.242:5173` 返回 `200 OK`，IP 来源的 CORS 预检返回 `access-control-allow-origin: http://192.168.1.242:5173`。
+
+### 根目录启动脚本补充记录 (2026-03-25 08:22:00 UTC)
+- 已在仓库根目录新增 `start.sh`，用于按 `IP + 端口` 一键同时启动后端与前端。
+- 脚本行为：
+  - 自动检测当前机器 IPv4 地址，也支持通过 `SERVICE_HOST_IP` 手动覆盖。
+  - 自动导出 `SERVICE_PUBLIC_BASE_URL` 与 `VITE_API_BASE_URL`，避免前后端仍落回 `localhost`。
+  - 以后端 `8000`、前端 `5173` 为默认端口，并在 `Ctrl+C` 时一并清理两个子进程。
+
+### 登录校验开关补充记录 (2026-03-25 08:28:00 UTC)
+- 已将 Hub 登录校验改为显式开关控制，当前默认关闭，便于本地直接启动和联调。
+- 后端新增配置：
+  - `REQUIRE_HUB_AUTH=false` 时，`get_auth_context` 会回退到本地开发身份，不再因缺失 `X-Hub-*` 请求头返回 `401 AUTH_REQUIRED`。
+  - 重新开启时仅需设置 `REQUIRE_HUB_AUTH=true`。
+- 前端新增配置：
+  - `VITE_REQUIRE_HUB_AUTH=false` 时，不再因为缺失 Hub 注入会话而立即展示失效横幅并跳转登录页。
+  - 重新开启时仅需设置 `VITE_REQUIRE_HUB_AUTH=true`。
+- 根目录 `start.sh` 已同步桥接该开关：执行 `REQUIRE_HUB_AUTH=true ./start.sh` 时，会自动把 `VITE_REQUIRE_HUB_AUTH=true` 传给前端。

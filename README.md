@@ -60,21 +60,106 @@
 3. **编写业务**: 在预留的 `apps/` 目录中填充你具体的 AI 业务流逻辑与模型调用。
 4. **一键运行**: 启动服务后，模板会自动调用注册接口向 Hub 报到并在 Hub Dashboard 中亮起。
 
-## 本地验证
+## 启动项目
 
-后端建议使用仓库内虚拟环境执行检查：
+以下步骤按“通过 `IP + 端口` 访问服务”设计，不使用 `localhost` 作为访问地址。
+
+### 1. 准备依赖
+
+后端：
 - `python3 -m venv .venv`
 - `.venv/bin/pip install -e '.[dev]'`
+
+前端：
+- `cd apps/frontend`
+- `npm install`
+- `cd ../..`
+
+### 2. 查看当前机器 IP
+
+```bash
+hostname -I
+```
+
+假设你要使用的局域网 IP 是 `192.168.1.242`。
+
+### 3. 启动后端
+
+```bash
+cd /home/zero/external-cortex/Zero/auto-project-template
+SERVICE_PUBLIC_BASE_URL=http://192.168.1.242:8000 \
+./.venv/bin/python -m uvicorn apps.backend.main:app --host 0.0.0.0 --port 8000
+```
+
+启动后通过以下地址访问后端健康检查：
+
+```text
+http://192.168.1.242:8000/healthz
+```
+
+说明：
+- `--host 0.0.0.0` 会监听所有网卡，否则外部无法通过 IP 访问。
+- 未配置 `HUB_API_URL` 和 `HUB_SERVICE_KEY` 时，`/healthz` 返回 `200 degraded` 属于预期行为，不是启动失败。
+- 根目录也提供了一键启动脚本：
+
+```bash
+cd /home/zero/external-cortex/Zero/auto-project-template
+./start.sh
+```
+
+脚本会自动检测当前机器 IP，并同时启动后端 `8000` 和前端 `5173`。
+如果自动检测到的 IP 不是你要暴露的地址，可以手动指定：
+
+```bash
+cd /home/zero/external-cortex/Zero/auto-project-template
+SERVICE_HOST_IP=192.168.1.242 ./start.sh
+```
+
+当前仓库已默认禁用登录校验，便于本地直接联调。
+如果要重新开启，启动时带上：
+
+```bash
+cd /home/zero/external-cortex/Zero/auto-project-template
+REQUIRE_HUB_AUTH=true ./start.sh
+```
+
+如果你不是用 `start.sh`，则需要分别设置：
+- 后端：`REQUIRE_HUB_AUTH=true`
+- 前端：`VITE_REQUIRE_HUB_AUTH=true`
+
+### 4. 启动前端
+
+```bash
+cd /home/zero/external-cortex/Zero/auto-project-template/apps/frontend
+npm run dev -- --host 0.0.0.0 --port 5173
+```
+
+启动后通过以下地址访问前端：
+
+```text
+http://192.168.1.242:5173
+```
+
+说明：
+- 前端默认会跟随当前访问页面的主机名，把 API 请求发到 `http://当前IP:8000`。
+- 如果你要显式指定后端地址，也可以这样启动前端：
+
+```bash
+cd /home/zero/external-cortex/Zero/auto-project-template/apps/frontend
+VITE_API_BASE_URL=http://192.168.1.242:8000 npm run dev -- --host 0.0.0.0 --port 5173
+```
+
+### 5. 常用检查命令
+
+后端检查：
 - `.venv/bin/python -m ruff format --check .`
 - `.venv/bin/python -m ruff check .`
 - `.venv/bin/python -m pytest`
-- `.venv/bin/python -m uvicorn apps.backend.main:app --reload`
 
-前端检查命令：
-- `cd apps/frontend && npm install`
-- `npm run typecheck`
-- `npm run lint`
-- `npm run build`
+前端检查：
+- `cd apps/frontend && npm run typecheck`
+- `cd apps/frontend && npm run lint`
+- `cd apps/frontend && npm run build`
 
 ## 愿景与目标
 

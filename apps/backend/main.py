@@ -100,6 +100,7 @@ app = FastAPI(title="AI Auto Hub Service Template", version=get_settings().app_v
 app.add_middleware(
     CORSMiddleware,
     allow_origins=get_settings().cors_allowed_origin_list,
+    allow_origin_regex=get_settings().cors_allowed_origin_regex,
     allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],

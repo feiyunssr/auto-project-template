@@ -2,6 +2,21 @@ import { computed, reactive, readonly } from "vue";
 
 import type { ApiError, HubSession } from "../lib/types";
 
+function readBooleanEnv(value: string | undefined, fallback: boolean): boolean {
+  if (value == null) {
+    return fallback;
+  }
+  return ["1", "true", "yes", "on"].includes(value.trim().toLowerCase());
+}
+
+const HUB_AUTH_REQUIRED = readBooleanEnv(import.meta.env.VITE_REQUIRE_HUB_AUTH, false);
+const FALLBACK_SESSION: HubSession = {
+  hubUserId: import.meta.env.VITE_DEV_HUB_USER_ID ?? "local-dev-user",
+  hubUserName: import.meta.env.VITE_DEV_HUB_USER_NAME ?? "Local Operator",
+  role: import.meta.env.VITE_DEV_HUB_ROLE ?? "operator",
+  loginUrl: import.meta.env.VITE_HUB_LOGIN_URL,
+};
+
 interface HubSessionState {
   session: HubSession | null;
   authExpired: boolean;
@@ -28,19 +43,20 @@ function readHubSession(): HubSession | null {
       loginUrl: injected.loginUrl,
     };
   }
+  if (!HUB_AUTH_REQUIRED) {
+    return { ...FALLBACK_SESSION };
+  }
   const localId = import.meta.env.VITE_DEV_HUB_USER_ID;
   if (!localId) {
     return null;
   }
-  return {
-    hubUserId: localId,
-    hubUserName: import.meta.env.VITE_DEV_HUB_USER_NAME ?? "Local Operator",
-    role: import.meta.env.VITE_DEV_HUB_ROLE ?? "operator",
-    loginUrl: import.meta.env.VITE_HUB_LOGIN_URL,
-  };
+  return { ...FALLBACK_SESSION, hubUserId: localId };
 }
 
 function scheduleRedirect() {
+  if (!HUB_AUTH_REQUIRED) {
+    return;
+  }
   if (state.redirectPending) {
     return;
   }
@@ -67,7 +83,10 @@ function bootstrapSession() {
   state.session = session;
   if (!session) {
     expireSession("登录状态已失效，正在返回 Hub 登录页");
+    return;
   }
+  state.authExpired = false;
+  state.redirectPending = false;
 }
 
 function authHeaders(): Record<string, string> {
@@ -82,6 +101,9 @@ function authHeaders(): Record<string, string> {
 }
 
 function handleAuthError(error: Partial<Pick<ApiError, "code" | "status">>) {
+  if (!HUB_AUTH_REQUIRED) {
+    return false;
+  }
   if (error.code !== "AUTH_REQUIRED" && error.status !== 401 && error.status !== 403) {
     return false;
   }
