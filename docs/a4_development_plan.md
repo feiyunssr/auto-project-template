@@ -174,3 +174,69 @@
   - `VITE_REQUIRE_HUB_AUTH=false` 时，不再因为缺失 Hub 注入会话而立即展示失效横幅并跳转登录页。
   - 重新开启时仅需设置 `VITE_REQUIRE_HUB_AUTH=true`。
 - 根目录 `start.sh` 已同步桥接该开关：执行 `REQUIRE_HUB_AUTH=true ./start.sh` 时，会自动把 `VITE_REQUIRE_HUB_AUTH=true` 传给前端。
+
+### README 模板复用说明补充记录 (2026-03-25 08:52:10 UTC)
+- 已在 `README.md` 的“快速开发指引”中新增“以本项目作为新项目基座”说明。
+- 已补充可直接执行的模板复用命令：
+  - 使用 `cp -R auto-project-template your-new-service` 复制目录并重建 Git 仓库。
+  - 使用 `git clone /home/zero/external-cortex/Zero/auto-project-template your-new-service` 克隆本地模板后重置远端。
+- 已补充新项目创建后的必改项清单，明确要求同步更新 `README.md`、`docs/PRD/service_prd.md`、`docs/architecture/service_engineering_plan.md` 与本开发计划文档。
+
+### README 已有远端仓库接入说明补充记录 (2026-03-25 08:56:33 UTC)
+- 已在 `README.md` 中补充“GitHub 新仓库已创建且已 clone 到本地”的操作场景。
+- 已新增基于 `rsync -a --exclude '.git'` 的明确命令，要求保留新仓库自己的 `.git` 与远端配置，仅同步模板内容进入工作区。
+- 已补充提交与推送命令 `git push origin "$(git branch --show-current)"`，避免文档将默认分支写死为 `main`。
+- 已同步修正“连接 Hub 并开始开发”小节的编号混用问题，避免标题与有序列表并存造成阅读歧义。
+
+### 与 ai-auto 视觉风格对齐记录 (2026-03-27 00:00:00 UTC)
+- 已按 `ai-auto` 当前实现重构模板前端默认外壳：
+  - `apps/frontend/src/App.vue` 新增侧栏、顶部工作区标题和会话信息区。
+  - `apps/frontend/src/views/ServiceDashboardView.vue` 新增 hero 区，并把业务区锚点收敛为统一控制台结构。
+- 已重写 `apps/frontend/src/style.css`，将模板默认视觉从独立浅色业务页切换为与 `ai-auto` 一致的深色玻璃化控制台风格。
+- 已同步更新设计文档：
+  - `DESIGN.md` 改为明确以 `ai-auto` 为唯一视觉基线。
+  - `docs/design/service_design_guidelines.md` 改为要求模板独立运行时也保持 Hub-style shell，不再维护另一套本地主题。
+
+### 与 ai-auto 工程骨架对齐记录 (2026-03-30 UTC)
+- 已将仓库重组为与 `ai-auto` 同构的多应用结构：
+  - `apps/service-backend`
+  - `apps/service-frontend`
+  - `apps/service-worker`
+  - `scripts/dev.sh`
+  - `docker-compose.yml`
+  - `infra/nginx`
+  - `db/migrations`
+- 已将业务 API 统一收敛到 `/api/v1/*`：
+  - `GET /healthz`
+  - `GET /api/v1/tasks`
+  - `POST /api/v1/tasks`
+  - `GET /api/v1/tasks/{job_id}`
+  - `POST /api/v1/tasks/{job_id}/retry`
+  - `GET /api/v1/settings/ai-profiles`
+  - `POST /api/v1/settings/ai-profiles`
+- 已将原“后端内嵌内存队列 worker”改为“数据库轮询式独立 worker”：
+  - 默认开发模式由 `apps/service-worker/service_worker/main.py` 独立运行。
+  - backend 通过 heartbeat 文件读取 worker 状态并透传到 `/healthz`。
+  - 测试模式允许 `SERVICE_BACKEND_RUN_EMBEDDED_WORKER=true` 以内嵌方式运行同一套 worker 逻辑。
+- 已把前端重构为 `ai-auto` 风格的路由化结构：
+  - `src/router/index.ts`
+  - `src/pages/DashboardPage.vue`
+  - `src/pages/WorkbenchPage.vue`
+  - `src/pages/ProfilesPage.vue`
+  - `src/pages/LoginPage.vue`
+  - `src/api/*`
+  - `src/styles/tokens.css`
+  - `src/styles/main.css`
+- 已完成本轮验证：
+  - `python3 -m compileall apps/service-backend/app apps/service-worker/service_worker`
+  - `cd apps/service-backend && PYTHONPATH=. ../../.venv/bin/pytest tests/test_tasks.py`
+  - `cd apps/service-frontend && npm run typecheck`
+  - `cd apps/service-frontend && npm run build`
+
+### 共享网关决策记录 (2026-03-30 UTC)
+- 已确定正式环境默认采用“共享网关”方案，而不是“每个子项目单独部署一个 nginx”。
+- 当前模板中的 `infra/nginx/` 与 `docker-compose.yml` 继续保留，但角色调整为：
+  - 独立演示环境
+  - 单项目临时部署
+  - 在平台共享网关尚未提供时的 fallback 方案
+- README 与工程方案已同步更新为该口径，避免后续新子服务继续按“每项目一套外部 nginx”扩散。

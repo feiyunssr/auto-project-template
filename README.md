@@ -1,166 +1,191 @@
 # auto-project-template
 
-> **🚨 必读上下文：什么是 AI Auto Hub？**
-> 对于初次接触本模板的开发者：本模板**不是**一个孤立的、自带全套体系的项目。
-> **AI Auto Hub** 是我们内部总控的“AI 自动化枢纽”。可以把它理解为一个微服务网关和控制台中心：**所有的 AI 自动化业务（如视频生成、自动抓取等）最终都要将自身的运行状态汇报给 Hub，并且将页面的账号登录交由 Hub 统一处理。**
-> 
-> 本模板即是为你准备的**标准子服务脚手架 (Data Plane)**。通过直接基于本模板开发，你无需再关心“怎么做鉴权”、“怎么汇报状态”，只需关注真正的 AI 业务。
+`auto-project-template` 现在以 `/home/zero/external-cortex/Zero/ai-auto` 为唯一工程基线，定位是 `AI Auto` 体系下的标准数据面子服务模板，而不是另起一套独立风格的脚手架。
 
----
+## 项目定位
 
-> **🌍 业务定位声明**  
-> 本服务是跨境电商公司 **AI 自动化体系 (AI Auto)** 蓝图中的标准子服务基础设施。我们的最终愿景是将整个业务流程中凡是能够自动化的节点进行彻底改造，利用 AI 最大程度代替人工，实现降本增效与跨平台内容生成的全链路智能化。
-> 
-> 本项目作为该自动化体系的 **通用模板与开发框架** (即架构中的数据面 Data Plane)，旨在将各个分散的 AI 自动化子环节（如创意视频生成、文案创作、素材采集等）中的重复部分进行标准化与固定化。它与总控枢纽 (AI Auto Hub) 无缝协同，从而加速新业务节点上线，并保证跨平台统一的治理与体验。
+- `ai-auto` 是控制面 / Hub，负责服务注册、状态聚合、告警和治理。
+- `auto-project-template` 是数据面模板，负责承载具体 AI 业务任务、AI 配置和结果沉淀，并接入 Hub 的会话与注册协议。
+- 统一的是工程骨架、视觉语言、运行方式和部署基线，不是把 Hub 的业务职责直接搬进模板。
 
----
+## 网关策略
 
-## 核心标准化模块
+当前已确定的正式环境推荐方案是：
 
-为了实现快速部署且与主控枢纽完全融合，本项目预置并固定了以下五个核心维度：
+- 平台统一使用一个共享网关承接 `Hub + 各数据面子服务`
+- 子服务本身只需要暴露自己的 frontend/backend 内部服务
+- 不再把“每个子项目都单独部署一个 nginx”当成默认生产方案
 
-### 1. 统一视觉风格与页面布局 (Visual & Layout Identity)
-- **设计语言**: 与 AI Auto Hub 保持高度一致的现代 Web 界面规范，采用 Tailwind-like 自定义样式，并默认支持深色模式 (Dark Mode)。
-- **布局体系**: 预置响应式侧边栏 (Sidebar)、顶部导航 (Topbar) 和全局面包屑导航，保证子服务在视觉和操作体验上能完美融为主系统的一部分。
-- **一致性体验**: 引入一致的过渡动画与状态反馈，开发者无需从零设计中心区域外的框架。
+这意味着：
 
-### 2. Hub 统一账号验证体系 (Centralized Authentication)
-- **登录托管**: 子服务自身**不包含**独立的登录、注册或是密码找回页面。所有账户状态的创建、分发与生命周期管理均由 **AI Auto Hub** 统一负责。
-- **鉴权与跳转拦截**: 本模板仅预置状态保护逻辑。子服务只负责进行前端与后台的登录状态获取及 Token/Session 验证。若检测到未登录或凭证失效，则自动无缝重定向跳转至 AI Auto Hub 的登录界面。
-- **权限同步**: 支持读取并继承源于 Hub 的 RBAC (Admin/Operator/Viewer) 访问角色信息，据此渲染本地功能菜单。
+- `auto-project-template` 在正式接入时，应优先挂到平台共享网关后面
+- 仓库里的 `infra/nginx/` 和 `docker-compose.yml` 继续保留，但定位调整为：
+  - 独立演示环境
+  - 单项目临时部署
+  - 没有共享网关时的 fallback 方案
 
-### 3. 微服务遥测与治理 (Telemetry & Service Governance)
-- **动态注册**: 新服务实例启动时，能够通过标准 API 将自身基础信息（负责团队、描述、版本等）动态挂载注册至 Hub。
-- **健康监控**: 预设标准的探活端点 (Health Check) 和心跳结构 (Heartbeat)，向 Hub Worker 暴露当前运行状态与最新异常日志，便于中心枢纽进行统一告警和状态聚合。
+## 当前对齐结果
 
-### 4. 标准化说明文档 (Internal Documentation)
-- **文档体系**: 内置 `docs/` 标准文档结构，支持 PRD、工程计划、架构设计审查等标准化流程落地。
-- **知识流转**: 提供开发配置与部署运维手册的占位模板，确保各团队之间的协作以及业务移交无障碍。
+本轮已经把模板改造成与 `ai-auto` 同一家族的多应用仓库：
 
-### 5. AI 控制中心 (AI Settings Center)
-- **模型与提示词隔离**: 提供独立业务的图形化设定界面，支持为相关的 Agent 或节点配置底层模型及调试自带提示词 (System Prompt)。
-- **参数调优**: 可视化调节 Temperature 等核心调参数据，以便在不升级代码库的情况下动态更新 AI 生成逻辑。
+- `apps/service-backend`：FastAPI 后端，业务接口统一收敛到 `/api/v1/*`
+- `apps/service-worker`：独立 worker 进程，按数据库轮询执行 `queued` 任务
+- `apps/service-frontend`：Vue 3 + Vite 前端，使用 `router + pages + api + styles` 结构
+- `scripts/dev.sh`：与 `ai-auto` 同风格的统一开发启动脚本
+- `db/migrations/`：数据库迁移占位基线
+- `docker-compose.yml`、`infra/nginx/`：独立部署 fallback 基线，不是默认生产入口
+- `.env.example`：统一环境变量入口
 
----
+同时保留模板自身职责：
 
-## 推荐技术架构
+- 任务提交、任务列表、任务详情抽屉
+- 本地 AI Profile 配置中心
+- Hub 登录桥接与状态透传
+- `/healthz` 和 Hub 自动注册骨架
 
-为了与 AI Auto Hub 底层架构保持一致并减小技术栈撕裂摩擦，子服务强烈推荐采用如下同构技术栈：
+## 仓库结构
 
-- **前端架构**: [Vue.js 3](https://vuejs.org/) (TypeScript, Vite) - 搭配 Tailwind-like 样式库，完全复用中心枢纽积累的交互规范与定制组件。
-- **后端 API**: [FastAPI](https://fastapi.tiangolo.com/) (Python) - 由于日常业务涉及大量的 AI 接口调用、数据处理与清洗，Python 结合快速异步的 FastAPI 是目前的最佳实践。
-- **数据与部署**: PostgreSQL 作为标准持久化层，Docker 容器化管理，方便后续 Hub 层实施统一部署与流量控制。
+```text
+apps/
+  service-backend/
+    app/
+    tests/
+  service-frontend/
+    src/
+  service-worker/
+    service_worker/
+db/
+  migrations/
+docs/
+infra/
+  nginx/
+scripts/
+  dev.sh
+  generate_internal_tls.sh
+```
 
----
-
-## 快速开发指引 🛠️
-
-1. **获取模板**: 直接 Clone 或 Copy 本目录结构作为你的新项目基座。
-2. **连接 Hub**: 在环境变量 `.env` 中配置 Hub 的网关地址和密钥（如 `HUB_API_URL`）。
-3. **编写业务**: 在预留的 `apps/` 目录中填充你具体的 AI 业务流逻辑与模型调用。
-4. **一键运行**: 启动服务后，模板会自动调用注册接口向 Hub 报到并在 Hub Dashboard 中亮起。
-
-## 启动项目
-
-以下步骤按“通过 `IP + 端口` 访问服务”设计，不使用 `localhost` 作为访问地址。
+## 本地开发
 
 ### 1. 准备依赖
 
-后端：
-- `python3 -m venv .venv`
-- `.venv/bin/pip install -e '.[dev]'`
-
-前端：
-- `cd apps/frontend`
-- `npm install`
-- `cd ../..`
-
-### 2. 查看当前机器 IP
-
-```bash
-hostname -I
-```
-
-假设你要使用的局域网 IP 是 `192.168.1.242`。
-
-### 3. 启动后端
-
 ```bash
 cd /home/zero/external-cortex/Zero/auto-project-template
-SERVICE_PUBLIC_BASE_URL=http://192.168.1.242:8000 \
-./.venv/bin/python -m uvicorn apps.backend.main:app --host 0.0.0.0 --port 8000
+
+python3 -m venv .venv
+./.venv/bin/pip install -e '.[dev]' -e ./apps/service-backend -e ./apps/service-worker
+
+cd apps/service-frontend
+npm install
+cd ../..
 ```
 
-启动后通过以下地址访问后端健康检查：
-
-```text
-http://192.168.1.242:8000/healthz
-```
-
-说明：
-- `--host 0.0.0.0` 会监听所有网卡，否则外部无法通过 IP 访问。
-- 未配置 `HUB_API_URL` 和 `HUB_SERVICE_KEY` 时，`/healthz` 返回 `200 degraded` 属于预期行为，不是启动失败。
-- 根目录也提供了一键启动脚本：
+### 2. 初始化环境文件
 
 ```bash
-cd /home/zero/external-cortex/Zero/auto-project-template
+cp .env.example .env
+```
+
+默认本地开发值：
+
+- Backend: `http://127.0.0.1:11010`
+- Frontend: `http://127.0.0.1:11011`
+- API 前缀：`/api/v1`
+- 默认数据库：`sqlite+aiosqlite:///./service.db`
+
+### 3. 启动
+
+```bash
+bash scripts/dev.sh start
+```
+
+查看状态：
+
+```bash
+bash scripts/dev.sh status
+```
+
+停止：
+
+```bash
+bash scripts/dev.sh stop
+```
+
+兼容入口仍保留：
+
+```bash
 ./start.sh
 ```
 
-脚本会自动检测当前机器 IP，并同时启动后端 `8000` 和前端 `5173`。
-如果自动检测到的 IP 不是你要暴露的地址，可以手动指定：
+## 认证与 Hub 对接
 
-```bash
-cd /home/zero/external-cortex/Zero/auto-project-template
-SERVICE_HOST_IP=192.168.1.242 ./start.sh
-```
+本地默认允许开发身份回退，不强制 Hub 会话。
 
-当前仓库已默认禁用登录校验，便于本地直接联调。
-如果要重新开启，启动时带上：
+如果要开启真实 Hub 登录桥接：
 
-```bash
-cd /home/zero/external-cortex/Zero/auto-project-template
-REQUIRE_HUB_AUTH=true ./start.sh
-```
-
-如果你不是用 `start.sh`，则需要分别设置：
-- 后端：`REQUIRE_HUB_AUTH=true`
+- 后端：`SERVICE_BACKEND_REQUIRE_HUB_AUTH=true`
 - 前端：`VITE_REQUIRE_HUB_AUTH=true`
 
-### 4. 启动前端
+如果要接入真实 Hub 注册接口：
+
+- `SERVICE_BACKEND_HUB_API_URL`
+- `SERVICE_BACKEND_HUB_SERVICE_KEY`
+
+未配置上述 Hub 注册变量时，`/healthz` 返回 `200 degraded` 属于预期。
+
+## 部署建议
+
+正式环境推荐拓扑：
+
+- 共享网关统一暴露域名、TLS、路由、访问日志和安全策略
+- `service-frontend`、`service-backend`、`service-worker` 作为内部服务部署
+- 当前仓库不要求每个子服务都再带一个独立 nginx 出口
+
+如果当前环境还没有共享网关，仓库仍然提供可独立部署的 fallback 基线：
+
+- `docker-compose.yml`
+- `apps/service-backend/Dockerfile`
+- `apps/service-worker/Dockerfile`
+- `infra/nginx/`
+
+启动示例：
 
 ```bash
-cd /home/zero/external-cortex/Zero/auto-project-template/apps/frontend
-npm run dev -- --host 0.0.0.0 --port 5173
+cp .env.example .env
+bash scripts/generate_internal_tls.sh
+docker compose up --build -d
 ```
 
-启动后通过以下地址访问前端：
+如果要通过内网域名访问，应先把域名指到部署机器，例如：
 
 ```text
-http://192.168.1.242:5173
+192.168.x.x  auto-project-template.test
 ```
 
-说明：
-- 前端默认会跟随当前访问页面的主机名，把 API 请求发到 `http://当前IP:8000`。
-- 如果你要显式指定后端地址，也可以这样启动前端：
+然后访问：
+
+- `https://auto-project-template.test`
+
+## 验证命令
+
+后端：
 
 ```bash
-cd /home/zero/external-cortex/Zero/auto-project-template/apps/frontend
-VITE_API_BASE_URL=http://192.168.1.242:8000 npm run dev -- --host 0.0.0.0 --port 5173
+cd apps/service-backend
+PYTHONPATH=. ../../.venv/bin/pytest tests/test_tasks.py
 ```
 
-### 5. 常用检查命令
+前端：
 
-后端检查：
-- `.venv/bin/python -m ruff format --check .`
-- `.venv/bin/python -m ruff check .`
-- `.venv/bin/python -m pytest`
+```bash
+cd apps/service-frontend
+npm run typecheck
+npm run build
+```
 
-前端检查：
-- `cd apps/frontend && npm run typecheck`
-- `cd apps/frontend && npm run lint`
-- `cd apps/frontend && npm run build`
+## 文档
 
-## 愿景与目标
-
-通过将这五大部分"模板化"，我们能够将内部新 AI 工具的立项及基础搭建周期从周级缩短至天级。开发者不再需要纠结于"登录怎么写"、"监控怎么做"或"页面怎么排版"，而是将全部精力集中在 **AI 业务逻辑及其对应的核心技术栈** 上。
+- `docs/PRD/service_prd.md`
+- `docs/architecture/service_engineering_plan.md`
+- `docs/a4_development_plan.md`
+- `docs/design/service_design_guidelines.md`
+- `DESIGN.md`

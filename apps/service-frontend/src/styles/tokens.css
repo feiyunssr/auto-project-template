@@ -1,0 +1,17 @@
+:root {
+  color-scheme: dark;
+  font-family: Inter, Outfit, sans-serif;
+  --bg-base: #0b0f19;
+  --bg-panel: rgba(255, 255, 255, 0.04);
+  --bg-panel-hover: rgba(255, 255, 255, 0.07);
+  --border-subtle: rgba(255, 255, 255, 0.1);
+  --text-main: #e2e8f0;
+  --text-muted: #94a3b8;
+  --primary: #6366f1;
+  --primary-hover: #4f46e5;
+  --success: #10b981;
+  --warning: #f59e0b;
+  --danger: #ef4444;
+  --neutral: #64748b;
+  --shadow-panel: 0 18px 48px rgba(0, 0, 0, 0.35);
+}

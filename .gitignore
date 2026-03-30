@@ -1,10 +1,18 @@
 .pytest_cache/
 .ruff_cache/
 .venv/
+.env
 *.egg-info/
 __pycache__/
 *.pyc
 service.db
+.runtime/
+infra/nginx/certs/tls.crt
+infra/nginx/certs/tls.fullchain.crt
+infra/nginx/certs/tls.key
+infra/tls/internal-ca/root-ca.crt
+infra/tls/internal-ca/root-ca.key
+infra/tls/internal-ca/root-ca.srl
 
-apps/frontend/node_modules/
-apps/frontend/dist/
+apps/service-frontend/node_modules/
+apps/service-frontend/dist/

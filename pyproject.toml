@@ -3,15 +3,16 @@ requires = ["setuptools>=68", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "auto-project-template-backend"
-version = "0.1.0"
-description = "AI Auto Hub service backend template"
+name = "auto-project-template-dev"
+version = "0.2.0"
+description = "Shared Python development environment for the AI Auto child-service template"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
   "aiosqlite>=0.20.0,<1.0.0",
   "fastapi>=0.116.0,<1.0.0",
   "httpx>=0.28.0,<1.0.0",
+  "psycopg[binary]>=3.2.0,<4.0.0",
   "pydantic-settings>=2.8.0,<3.0.0",
   "sqlalchemy>=2.0.38,<3.0.0",
   "uvicorn[standard]>=0.34.0,<1.0.0",
@@ -25,11 +26,7 @@ dev = [
 ]
 
 [tool.setuptools]
-package-dir = {"" = "."}
-
-[tool.setuptools.packages.find]
-where = ["."]
-include = ["apps*"]
+py-modules = []
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

@@ -1,6 +1,6 @@
 # 子服务工程实施计划
 - 文档状态：Draft for Implementation
-- 更新日期：2026-03-24
+- 更新日期：2026-03-30
 - 输入依据：`docs/PRD/service_prd.md`、`README.md`
 - 适用范围：AI Auto Hub 体系下的单业务能力节点型子服务
 
@@ -12,12 +12,12 @@
 - 可变业务输入和输出采用 `jsonb` 承载，等具体业务收敛后再做字段下沉。
 
 ## 2. 推荐架构
-后端建议分为五层：
-1. API 层：FastAPI 暴露任务、结果、AI 配置、`/healthz`。
-2. Orchestrator 层：负责状态机、幂等、超时、重试、错误归类。
-3. Provider Adapter 层：封装外部 AI 服务调用差异。
-4. Worker 层：消费队列并执行异步任务。
-5. Hub Integration 层：负责自动注册、心跳、探活和 Hub 上下文透传。
+当前推荐按 `ai-auto` 的多应用仓库方式拆分：
+1. `apps/service-backend`：FastAPI 后端，负责 `/healthz` 与 `/api/v1/*` 业务接口。
+2. `apps/service-worker`：独立 worker 进程，轮询数据库中的 `queued` 任务并执行编排。
+3. `apps/service-frontend`：Vue 3 前端，使用 `router + pages + api + styles` 结构。
+4. 正式环境默认使用平台共享网关统一承接 Hub 与各子服务；仓库内 `infra/nginx` + `docker-compose.yml` 仅保留为独立部署 fallback。
+5. Hub Integration：由 backend 负责自动注册、心跳、探活和 Hub 上下文透传。
 核心状态机：`draft -> queued -> running -> succeeded | failed | cancelled | review_required`
 状态含义：
 - `draft`：草稿或未通过校验。
@@ -84,8 +84,8 @@ Provider 字段：`provider_name`，`provider_model`，`external_request_id`
 ## 4. 外部 AI 接口调用逻辑与工作流编排
 主流程：
 1. 前端提交任务，后端完成参数校验、Hub 登录态校验和幂等键校验。
-2. API 写入 `service_job`，状态置为 `queued`，并投递本地 worker 队列。
-3. Worker 拉取任务后，加载 `service_ai_profile`、业务输入和关联素材。
+2. API 写入 `service_job`，状态置为 `queued`，不在请求线程内直接执行任务。
+3. 独立 worker 进程轮询数据库中的 `queued` 任务，加载 `service_ai_profile`、业务输入和关联素材。
 4. Orchestrator 执行四段式流程：`prepare -> invoke provider -> normalize result -> persist output`。
 5. 每次外部调用都写入 `service_job_attempt`，记录 provider、耗时、token、错误和外部请求 ID。
 6. 成功后写入 `service_result` 与 `service_artifact`，并回写 `service_job.status/result_summary`。
@@ -103,14 +103,17 @@ Provider 字段：`provider_name`，`provider_model`，`external_request_id`
 - 表单或业务校验失败时，创建接口应返回 `VALIDATION_ERROR` 和 `field_errors`，其中 `field_errors` 必须可直接映射到前端字段组件。
 - `review_required` 必须作为独立业务状态返回，不得复用 `failed` 或以空结果代替。
 推荐模块拆分：
-- `apps/backend/api/routes/tasks.py`
-- `apps/backend/api/routes/settings.py`
-- `apps/backend/api/routes/ops.py`
-- `apps/backend/services/orchestrator.py`
-- `apps/backend/services/providers/base.py`
-- `apps/backend/services/providers/*.py`
-- `apps/backend/workers/job_worker.py`
-- `apps/backend/models/*.py`
+- `apps/service-backend/app/api/routes/tasks.py`
+- `apps/service-backend/app/api/routes/settings.py`
+- `apps/service-backend/app/api/routes/ops.py`
+- `apps/service-backend/app/api/router.py`
+- `apps/service-backend/app/services/orchestrator.py`
+- `apps/service-backend/app/services/providers/base.py`
+- `apps/service-backend/app/services/providers/*.py`
+- `apps/service-backend/app/workers/job_worker.py`
+- `apps/service-backend/app/workers/monitor.py`
+- `apps/service-backend/app/models/*.py`
+- `apps/service-worker/service_worker/main.py`
 
 ## 5. `/healthz` 接口设计与自动注册流预设计
 `/healthz` 设计：
@@ -123,7 +126,7 @@ Provider 字段：`provider_name`，`provider_model`，`external_request_id`
 - 判定规则：数据库失败直接返回 `503`；队列或外部 AI 短时异常返回 `200 + degraded`
 - 性能要求：只做轻量检查，不跑重 SQL，目标耗时小于 300ms
 自动注册流：
-1. 启动时读取 `HUB_API_URL`、`HUB_SERVICE_KEY`、`SERVICE_PUBLIC_BASE_URL`、`SERVICE_VERSION`、`SERVICE_CAPABILITIES`。
+1. 启动时读取 `SERVICE_BACKEND_HUB_API_URL`、`SERVICE_BACKEND_HUB_SERVICE_KEY`、`SERVICE_BACKEND_SERVICE_PUBLIC_BASE_URL`、`SERVICE_BACKEND_APP_VERSION`、`SERVICE_BACKEND_SERVICE_CAPABILITIES`。
 2. 本地自检数据库、worker、`/healthz` 是否可用。
 3. 向 Hub 内部注册接口发起请求，建议路径为 `POST /internal/services/register`。
 4. 注册载荷至少包含：`service_key`、`display_name`、`description`、`version`、`base_url`、`healthz_url`、`team`、`environment`、`capabilities`、`instance_id`。
@@ -133,8 +136,15 @@ Provider 字段：`provider_name`，`provider_model`，`external_request_id`
 8. 进程退出时最佳努力发起反注册，失败则由 Hub 侧按租约过期回收。
 
 ## 6. 本地前端组件树拆解
-页面级容器：`ServiceDashboardView`
-页面级子组件：
+页面级容器改为与 `ai-auto` 一致的路由结构：
+- `src/App.vue`：统一侧栏、顶部工作区标题和会话区
+- `src/router/index.ts`
+- `src/pages/DashboardPage.vue`
+- `src/pages/WorkbenchPage.vue`
+- `src/pages/ProfilesPage.vue`
+- `src/pages/LoginPage.vue`
+
+业务组件保持模板职责：
 - `ServiceStatusBanner`
 - `TaskCreateCard`
 - `TaskListCard`
