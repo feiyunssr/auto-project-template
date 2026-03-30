@@ -11,6 +11,7 @@ from app.models.enums import AttemptStatus, JobStatus, QualityStatus
 from app.models.mixins import utcnow
 from app.repositories.ai_profiles import AiProfileRepository
 from app.repositories.tasks import TaskRepository
+from app.services.hub_telemetry import HubTelemetryService
 from app.services.provider_registry import get_provider_adapter
 from app.services.state_machine import ensure_transition
 
@@ -18,11 +19,17 @@ logger = logging.getLogger(__name__)
 
 
 class JobOrchestrator:
-    def __init__(self, session: AsyncSession) -> None:
+    def __init__(
+        self,
+        session: AsyncSession,
+        *,
+        hub_telemetry: HubTelemetryService | None = None,
+    ) -> None:
         self.session = session
         self.tasks = TaskRepository(session)
         self.ai_profiles = AiProfileRepository(session)
         self.provider = get_provider_adapter()
+        self.hub_telemetry = hub_telemetry
 
     async def run_job(self, job_id) -> None:
         job = await self.tasks.get_job_by_id(job_id)
@@ -57,7 +64,11 @@ class JobOrchestrator:
             except ProviderRateLimitError as exc:
                 await self._handle_retryable_error(job, profile, attempt_no, exc, is_last_attempt)
             except Exception as exc:  # noqa: BLE001
-                logger.exception("job_post_processing_failed job_id=%s attempt_no=%s", job.id, attempt_no)
+                logger.exception(
+                    "job_post_processing_failed job_id=%s attempt_no=%s",
+                    job.id,
+                    attempt_no,
+                )
                 await self._mark_failed(job, "POST_PROCESSING_FAILED", str(exc), retryable=False)
                 return
 
@@ -148,7 +159,13 @@ class JobOrchestrator:
         )
         await self.tasks.add_result(result)
         for artifact_payload in normalized.artifacts:
-            await self.tasks.add_artifact(ServiceArtifact(job_id=job.id, attempt_id=attempt.id, **artifact_payload))
+            await self.tasks.add_artifact(
+                ServiceArtifact(
+                    job_id=job.id,
+                    attempt_id=attempt.id,
+                    **artifact_payload,
+                )
+            )
 
         target_status = (
             JobStatus.REVIEW_REQUIRED.value
@@ -166,7 +183,10 @@ class JobOrchestrator:
             "result_type": normalized.result_type,
         }
         logger.info(
-            "job_succeeded job_id=%s job_no=%s attempt_no=%s final_status=%s external_request_id=%s",
+            (
+                "job_succeeded job_id=%s job_no=%s attempt_no=%s "
+                "final_status=%s external_request_id=%s"
+            ),
             job.id,
             job.job_no,
             attempt_no,
@@ -174,8 +194,16 @@ class JobOrchestrator:
             invoke_result.external_request_id,
         )
         await self.session.commit()
+        await self._emit_success_event(job)
 
-    async def _handle_retryable_error(self, job, profile, attempt_no: int, exc: Exception, is_last: bool) -> None:
+    async def _handle_retryable_error(
+        self,
+        job,
+        profile,
+        attempt_no: int,
+        exc: Exception,
+        is_last: bool,
+    ) -> None:
         is_timeout = isinstance(exc, ProviderTimeoutError)
         error_code = (
             "PROVIDER_TIMEOUT_FINAL"
@@ -191,7 +219,10 @@ class JobOrchestrator:
         job.error_code = error_code
         job.error_message = message
         logger.warning(
-            "provider_attempt_retryable_error job_id=%s job_no=%s attempt_no=%s error_code=%s is_last=%s message=%s",
+            (
+                "provider_attempt_retryable_error job_id=%s job_no=%s "
+                "attempt_no=%s error_code=%s is_last=%s message=%s"
+            ),
             job.id,
             job.job_no,
             attempt_no,
@@ -221,3 +252,50 @@ class JobOrchestrator:
             error_message,
         )
         await self.session.commit()
+        await self._emit_failure_event(job, retryable=retryable)
+
+    async def _emit_success_event(self, job) -> None:
+        if self.hub_telemetry is None:
+            return
+        occurred_at = job.finished_at or utcnow()
+        await self.hub_telemetry.emit_job_succeeded(
+            job_id=str(job.id),
+            attempt_no=job.current_attempt_no,
+            occurred_at=occurred_at,
+            status=job.status,
+            duration_ms=self._duration_ms(job.started_at, occurred_at),
+            metadata=self._build_event_metadata(job),
+        )
+
+    async def _emit_failure_event(self, job, *, retryable: bool) -> None:
+        if self.hub_telemetry is None:
+            return
+        occurred_at = job.finished_at or utcnow()
+        metadata = self._build_event_metadata(job)
+        metadata["retryable"] = retryable
+        await self.hub_telemetry.emit_job_failed(
+            job_id=str(job.id),
+            attempt_no=job.current_attempt_no,
+            occurred_at=occurred_at,
+            status=job.status,
+            duration_ms=self._duration_ms(job.started_at, occurred_at),
+            error_code=job.error_code,
+            error_summary=job.error_message,
+            metadata=metadata,
+        )
+
+    @staticmethod
+    def _build_event_metadata(job) -> dict[str, str | int | bool | None]:
+        return {
+            "scenario_key": job.scenario_key,
+            "source_channel": job.source_channel,
+            "submitted_by_hub_user_id": job.submitted_by_hub_user_id,
+            "submitted_by_name": job.submitted_by_name,
+            "job_no": job.job_no,
+        }
+
+    @staticmethod
+    def _duration_ms(started_at, occurred_at) -> int | None:
+        if started_at is None or occurred_at is None:
+            return None
+        return max(int((occurred_at - started_at).total_seconds() * 1000), 0)

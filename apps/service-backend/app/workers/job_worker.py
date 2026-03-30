@@ -8,8 +8,9 @@ from pathlib import Path
 
 from sqlalchemy.ext.asyncio import async_sessionmaker
 
-from app.services.orchestrator import JobOrchestrator
 from app.repositories.tasks import TaskRepository
+from app.services.hub_telemetry import HubTelemetryService
+from app.services.orchestrator import JobOrchestrator
 
 logger = logging.getLogger(__name__)
 
@@ -21,11 +22,13 @@ class JobWorker:
         poll_interval_ms: int = 500,
         max_jobs_per_cycle: int = 2,
         heartbeat_path: str | None = None,
+        hub_telemetry: HubTelemetryService | None = None,
     ) -> None:
         self.session_factory = session_factory
         self.poll_interval_ms = poll_interval_ms
         self.max_jobs_per_cycle = max_jobs_per_cycle
         self.heartbeat_path = Path(heartbeat_path) if heartbeat_path else None
+        self.hub_telemetry = hub_telemetry
         self._runner: asyncio.Task | None = None
         self._stop = asyncio.Event()
         self._active_jobs = 0
@@ -62,7 +65,9 @@ class JobWorker:
     async def _run(self) -> None:
         while not self._stop.is_set():
             async with self.session_factory() as session:
-                queued_job_ids = await TaskRepository(session).list_queued_job_ids(limit=self.max_jobs_per_cycle)
+                queued_job_ids = await TaskRepository(session).list_queued_job_ids(
+                    limit=self.max_jobs_per_cycle,
+                )
 
             if not queued_job_ids:
                 await self._write_heartbeat("idle")
@@ -75,7 +80,10 @@ class JobWorker:
                 self._active_jobs += 1
                 try:
                     async with self.session_factory() as session:
-                        await JobOrchestrator(session).run_job(job_id)
+                        await JobOrchestrator(
+                            session,
+                            hub_telemetry=self.hub_telemetry,
+                        ).run_job(job_id)
                     self._processed_jobs += 1
                 finally:
                     self._active_jobs -= 1

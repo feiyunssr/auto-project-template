@@ -14,6 +14,7 @@ async def healthz(response: Response, runtime=Depends(get_runtime)) -> HealthRes
         session_factory=runtime.session_factory,
         worker=runtime.worker,
         registration_snapshot=runtime.registration.snapshot(),
+        telemetry_snapshot=runtime.hub_telemetry.snapshot(),
         instance_id=runtime.instance_id,
         started_at=runtime.started_at,
     )

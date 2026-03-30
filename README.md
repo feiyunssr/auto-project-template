@@ -132,6 +132,23 @@ bash scripts/dev.sh stop
 
 未配置上述 Hub 注册变量时，`/healthz` 返回 `200 degraded` 属于预期。
 
+如果 Hub 侧已经配置了 `HUB_BACKEND_INTERNAL_BOOTSTRAP_KEY`，模板现在可以直接用：
+
+- `SERVICE_BACKEND_HUB_API_URL`
+- `SERVICE_BACKEND_HUB_SERVICE_KEY`
+
+说明：
+
+- `SERVICE_BACKEND_HUB_SERVICE_KEY` 应与 Hub 侧的 `HUB_BACKEND_INTERNAL_BOOTSTRAP_KEY` 保持一致
+- backend 会通过 `/internal/services/register` 自动换取 `service_id + service_token`
+- 换取到的 telemetry 凭证会写入 `.runtime/hub-service-credentials.json`
+- backend 与独立 worker 会自动复用这份凭证，把 `heartbeat`、`job_succeeded`、`job_failed` 发到 Hub
+
+如果你不走内部 bootstrap，也仍可手工配置以下变量作为覆盖：
+
+- `SERVICE_BACKEND_HUB_SERVICE_ID`
+- `SERVICE_BACKEND_HUB_SERVICE_TOKEN`
+
 ## 部署建议
 
 正式环境推荐拓扑：

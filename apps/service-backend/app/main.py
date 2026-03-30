@@ -21,6 +21,7 @@ from app.db import SessionFactory, init_database
 from app.models import ServiceAiProfile
 from app.repositories.ai_profiles import AiProfileRepository
 from app.schemas.common import ApiErrorResponse
+from app.services.hub_telemetry import HubTelemetryService
 from app.services.registration import HubRegistrationService
 from app.workers.job_worker import JobWorker
 from app.workers.monitor import WorkerMonitor
@@ -37,6 +38,7 @@ class AppRuntime:
     session_factory: type(SessionFactory)
     worker: object
     registration: HubRegistrationService
+    hub_telemetry: HubTelemetryService
 
 
 async def ensure_default_profile(settings: Settings) -> None:
@@ -71,12 +73,14 @@ async def lifespan(app: FastAPI):
     await init_database()
     await ensure_default_profile(settings)
     instance_id = str(uuid.uuid4())
+    hub_telemetry = HubTelemetryService(settings, instance_id=instance_id)
     worker = (
         JobWorker(
             SessionFactory,
             poll_interval_ms=settings.worker_poll_interval_ms,
             max_jobs_per_cycle=settings.worker_max_jobs_per_cycle,
             heartbeat_path=settings.worker_heartbeat_path,
+            hub_telemetry=hub_telemetry,
         )
         if settings.run_embedded_worker
         else WorkerMonitor(
@@ -90,7 +94,12 @@ async def lifespan(app: FastAPI):
         instance_id=instance_id,
         session_factory=SessionFactory,
         worker=worker,
-        registration=HubRegistrationService(settings, instance_id=instance_id),
+        registration=HubRegistrationService(
+            settings,
+            instance_id=instance_id,
+            hub_telemetry=hub_telemetry,
+        ),
+        hub_telemetry=hub_telemetry,
     )
     app.state.runtime = runtime
     logger.info(
@@ -99,13 +108,15 @@ async def lifespan(app: FastAPI):
         settings.app_version,
         settings.environment,
     )
+    await runtime.registration.start()
+    await runtime.hub_telemetry.start()
     if isinstance(runtime.worker, JobWorker):
         await runtime.worker.start()
-    await runtime.registration.start()
     try:
         yield
     finally:
         await runtime.registration.stop()
+        await runtime.hub_telemetry.stop()
         if isinstance(runtime.worker, JobWorker):
             await runtime.worker.stop()
         logger.info("service_stopped instance_id=%s", instance_id)

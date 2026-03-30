@@ -217,6 +217,10 @@
 - 已将原“后端内嵌内存队列 worker”改为“数据库轮询式独立 worker”：
   - 默认开发模式由 `apps/service-worker/service_worker/main.py` 独立运行。
   - backend 通过 heartbeat 文件读取 worker 状态并透传到 `/healthz`。
+- 已补齐面向当前 `ai-auto` Hub 的 telemetry 上报路径：
+  - backend 会优先通过内部 bootstrap 接口自动换取 `service_id + service_token`，并周期上报 `heartbeat`
+  - `SERVICE_BACKEND_HUB_SERVICE_KEY` 需与 Hub 侧 `HUB_BACKEND_INTERNAL_BOOTSTRAP_KEY` 保持一致，bootstrap 得到的凭证会落盘到 `.runtime/hub-service-credentials.json`
+  - 任务执行成功与失败会向 Hub 发送 `job_succeeded` / `job_failed` 事件，并带上 `error_code` / `error_summary`
   - 测试模式允许 `SERVICE_BACKEND_RUN_EMBEDDED_WORKER=true` 以内嵌方式运行同一套 worker 逻辑。
 - 已把前端重构为 `ai-auto` 风格的路由化结构：
   - `src/router/index.ts`

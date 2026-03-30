@@ -9,6 +9,7 @@ from uuid import uuid4
 import httpx
 
 from app.core.config import Settings
+from app.services.hub_telemetry import HubTelemetryService
 
 logger = logging.getLogger(__name__)
 
@@ -23,11 +24,22 @@ class RegistrationSnapshot:
 
 
 class HubRegistrationService:
-    def __init__(self, settings: Settings, instance_id: str) -> None:
+    def __init__(
+        self,
+        settings: Settings,
+        instance_id: str,
+        *,
+        hub_telemetry: HubTelemetryService | None = None,
+    ) -> None:
         self.settings = settings
         self.instance_id = instance_id
+        self.hub_telemetry = hub_telemetry
         self.snapshot_state = RegistrationSnapshot(
-            status="degraded" if not settings.hub_api_url or not settings.hub_service_key else "pending"
+            status=(
+                "degraded"
+                if not settings.hub_api_url or not settings.hub_service_key
+                else "pending"
+            )
         )
         self._task: asyncio.Task | None = None
         self._stop = asyncio.Event()
@@ -35,6 +47,13 @@ class HubRegistrationService:
     async def start(self) -> None:
         if self._task is None:
             self._stop.clear()
+            if self.settings.hub_api_url and self.settings.hub_service_key:
+                try:
+                    await self._sync_once()
+                except Exception as exc:  # noqa: BLE001
+                    self.snapshot_state.status = "degraded"
+                    self.snapshot_state.last_error = str(exc)
+                    logger.warning("hub_registration_initial_sync_failed error=%s", exc)
             self._task = asyncio.create_task(self._run_loop(), name="hub-registration-loop")
 
     async def stop(self) -> None:
@@ -57,10 +76,7 @@ class HubRegistrationService:
             backoff = self.settings.registration_backoff_sec
             while not self._stop.is_set():
                 try:
-                    if self.snapshot_state.registration_id is None:
-                        await self._register(client)
-                    else:
-                        await self._heartbeat(client)
+                    await self._sync_once(client)
                     backoff = self.settings.registration_backoff_sec
                     await asyncio.sleep(max(5, self.snapshot_state.lease_ttl_sec // 2))
                 except Exception as exc:  # noqa: BLE001
@@ -69,6 +85,19 @@ class HubRegistrationService:
                     logger.warning("hub_registration_failed backoff_sec=%s error=%s", backoff, exc)
                     await asyncio.sleep(backoff)
                     backoff = min(backoff * 2, 60)
+
+    async def _sync_once(self, client: httpx.AsyncClient | None = None) -> None:
+        if client is None:
+            async with httpx.AsyncClient(
+                base_url=self.settings.hub_api_url,
+                timeout=5.0,
+            ) as owned_client:
+                await self._sync_once(owned_client)
+                return
+        if self.snapshot_state.registration_id is None:
+            await self._register(client)
+        else:
+            await self._heartbeat(client)
 
     async def _register(self, client: httpx.AsyncClient) -> None:
         response = await client.post(
@@ -91,6 +120,14 @@ class HubRegistrationService:
         payload = response.json()
         self.snapshot_state.registration_id = payload.get("registration_id", f"local-{uuid4()}")
         self.snapshot_state.lease_ttl_sec = int(payload.get("lease_ttl_sec", 60))
+        if self.hub_telemetry is not None:
+            service_id = payload.get("service_id")
+            service_token = payload.get("service_token")
+            if service_id and service_token:
+                self.hub_telemetry.configure_credentials(
+                    str(service_id),
+                    str(service_token),
+                )
         self.snapshot_state.status = "healthy"
         self.snapshot_state.last_error = None
         logger.info(

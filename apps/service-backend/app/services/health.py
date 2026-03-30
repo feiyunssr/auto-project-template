@@ -15,6 +15,7 @@ async def build_health_response(
     session_factory: async_sessionmaker,
     worker,
     registration_snapshot: dict,
+    telemetry_snapshot: dict,
     instance_id: str,
     started_at: datetime,
 ) -> tuple[int, HealthResponse]:
@@ -45,6 +46,14 @@ async def build_health_response(
         detail=registration_snapshot.get("last_error") or "registration ok",
     )
     if registration_status != "healthy" and overall_status == "healthy":
+        overall_status = "degraded"
+
+    telemetry_status = telemetry_snapshot.get("status", "degraded")
+    checks["hub_telemetry"] = HealthCheckItem(
+        status=telemetry_status,
+        detail=telemetry_snapshot.get("last_error") or "telemetry ok",
+    )
+    if telemetry_status != "healthy" and overall_status == "healthy":
         overall_status = "degraded"
 
     checks["provider_adapter"] = HealthCheckItem(status="healthy", detail=settings.provider_mode)

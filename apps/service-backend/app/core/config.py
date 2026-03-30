@@ -12,6 +12,7 @@ class Settings(BaseSettings):
         env_file=".env",
         env_file_encoding="utf-8",
         extra="ignore",
+        populate_by_name=True,
     )
 
     app_name: str = "AI Auto Service Backend"
@@ -24,10 +25,32 @@ class Settings(BaseSettings):
         validation_alias=AliasChoices("SERVICE_BACKEND_DATABASE_URL", "DATABASE_URL"),
     )
 
-    hub_api_url: str | None = Field(default=None, validation_alias=AliasChoices("SERVICE_BACKEND_HUB_API_URL", "HUB_API_URL"))
+    hub_api_url: str | None = Field(
+        default=None,
+        validation_alias=AliasChoices("SERVICE_BACKEND_HUB_API_URL", "HUB_API_URL"),
+    )
+    hub_api_v1_prefix: str = Field(
+        default="/api/v1",
+        validation_alias=AliasChoices("SERVICE_BACKEND_HUB_API_V1_PREFIX", "HUB_API_V1_PREFIX"),
+    )
     hub_service_key: str | None = Field(
         default=None,
         validation_alias=AliasChoices("SERVICE_BACKEND_HUB_SERVICE_KEY", "HUB_SERVICE_KEY"),
+    )
+    hub_service_id: str | None = Field(
+        default=None,
+        validation_alias=AliasChoices("SERVICE_BACKEND_HUB_SERVICE_ID", "HUB_SERVICE_ID"),
+    )
+    hub_service_token: str | None = Field(
+        default=None,
+        validation_alias=AliasChoices("SERVICE_BACKEND_HUB_SERVICE_TOKEN", "HUB_SERVICE_TOKEN"),
+    )
+    hub_request_timeout_seconds: float = Field(
+        default=5.0,
+        validation_alias=AliasChoices(
+            "SERVICE_BACKEND_HUB_REQUEST_TIMEOUT_SECONDS",
+            "HUB_REQUEST_TIMEOUT_SECONDS",
+        ),
     )
     require_hub_auth: bool = Field(
         default=False,
@@ -54,6 +77,13 @@ class Settings(BaseSettings):
     worker_max_jobs_per_cycle: int = 2
     worker_heartbeat_timeout_sec: int = 30
     worker_heartbeat_path: str = str(Path(".runtime") / "service-worker.json")
+    hub_service_credentials_path: str = Field(
+        default=str(Path(".runtime") / "hub-service-credentials.json"),
+        validation_alias=AliasChoices(
+            "SERVICE_BACKEND_HUB_SERVICE_CREDENTIALS_PATH",
+            "HUB_SERVICE_CREDENTIALS_PATH",
+        ),
+    )
     heartbeat_interval_sec: int = 30
     registration_backoff_sec: int = 5
     default_provider_name: str = "mock"
