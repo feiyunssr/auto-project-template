@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { onBeforeUnmount, onMounted } from 'vue'
+import { RouterLink } from 'vue-router'
 
 import AiProfileDrawer from '../components/AiProfileDrawer.vue'
 import ServiceStatusBanner from '../components/ServiceStatusBanner.vue'
@@ -51,6 +52,34 @@ onBeforeUnmount(() => {
       :error="healthStore.state.error"
       :timeout-retrying="taskStore.timeoutRetryTask.value"
     />
+
+    <section class="context-grid">
+      <article class="panel context-card stack gap-4">
+        <div>
+          <p class="eyebrow">Before Submit</p>
+          <h3>创建任务前先做这三个检查</h3>
+        </div>
+        <ul class="list-dense">
+          <li>业务场景和任务标题要指向同一个目标。</li>
+          <li>业务输入里优先写目标、限制条件和必要背景。</li>
+          <li>只有需要改模型策略时，才展开高级选项切换 AI Profile。</li>
+        </ul>
+        <RouterLink class="text-button" :to="{ path: '/guide', hash: '#task-flow' }">查看任务流说明</RouterLink>
+      </article>
+
+      <article class="panel context-card stack gap-4">
+        <div>
+          <p class="eyebrow">Status Help</p>
+          <h3>怎么判断是等待、重试还是失败</h3>
+        </div>
+        <ul class="list-dense">
+          <li>`queued` / `running` 期间不要重复提交同一任务。</li>
+          <li>看到 warning 横幅时，通常表示系统还在自动重试。</li>
+          <li>只有进入 failed，才需要重点检查 attempt 和输入质量。</li>
+        </ul>
+        <RouterLink class="text-button" :to="{ path: '/guide', hash: '#status-guide' }">查看状态说明</RouterLink>
+      </article>
+    </section>
 
     <section class="dashboard-grid">
       <div>

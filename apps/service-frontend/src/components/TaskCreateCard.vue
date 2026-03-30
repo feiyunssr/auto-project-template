@@ -4,6 +4,7 @@
       <div class="stack gap-1">
         <h2 class="card-title">创建任务</h2>
         <p class="card-subtitle">提交后进入异步编排流程，表单值会保留直到你主动重置。</p>
+        <RouterLink class="text-button" :to="{ path: '/guide', hash: '#task-flow' }">查看填写示例与状态说明</RouterLink>
       </div>
       <button class="secondary-button" type="button" @click="$emit('open-profiles')">调整 AI 配置</button>
     </header>
@@ -19,12 +20,14 @@
           <option value="content">内容生产</option>
           <option value="video">视频脚本</option>
         </select>
+        <span class="field-hint">先选最贴近当前目标的场景，不要为了试错把多个场景混在同一个任务里。</span>
         <span v-if="errors.scenario_key" class="field-error">{{ errors.scenario_key }}</span>
       </label>
 
       <label class="field-group">
         <span class="field-label">任务标题</span>
         <input ref="titleRef" v-model="form.title" class="field-input" placeholder="例如：春季上新广告文案" />
+        <span class="field-hint">标题用于帮助你在列表和详情里快速识别任务，建议直接写业务目标。</span>
         <span v-if="errors.title" class="field-error">{{ errors.title }}</span>
       </label>
 
@@ -36,12 +39,14 @@
           class="field-input field-textarea"
           placeholder="请输入要交给 AI 的核心业务指令、背景和约束"
         />
+        <span class="field-hint">建议按“目标 + 限制条件 + 背景/素材”组织输入，避免只写一个模糊主题。</span>
         <span v-if="errors.input_payload" class="field-error">{{ errors.input_payload }}</span>
       </label>
 
       <label class="field-group">
         <span class="field-label">素材链接</span>
         <textarea v-model="form.asset_urls" class="field-input field-textarea" placeholder="每行一个素材 URL，可为空" />
+        <span class="field-hint">只有当素材确实会影响结果时再填，保持链接可访问且一行一个。</span>
       </label>
 
       <details class="advanced-box">
@@ -55,10 +60,12 @@
                 {{ profile.profile_name }}
               </option>
             </select>
+            <span class="field-hint">默认配置适合大多数任务，只有需要改变模型策略时才切换。</span>
           </label>
           <label class="field-group">
             <span class="field-label">来源渠道</span>
             <input v-model="form.source_channel" class="field-input" placeholder="hub" />
+            <span class="field-hint">用于标记请求来源，默认保留 `hub` 即可。</span>
           </label>
         </div>
       </details>
@@ -74,82 +81,83 @@
 </template>
 
 <script setup lang="ts">
-import { computed, reactive, ref } from "vue";
+import { computed, reactive, ref } from 'vue'
+import { RouterLink } from 'vue-router'
 
 import type { AiProfile } from '../api/types'
 import { useTaskStore } from '../stores/useTaskStore'
 
-const props = defineProps<{ profiles: readonly AiProfile[]; disabled: boolean }>();
-defineEmits<{ (event: "open-profiles"): void }>();
+const props = defineProps<{ profiles: readonly AiProfile[]; disabled: boolean }>()
+defineEmits<{ (event: 'open-profiles'): void }>()
 
-const taskStore = useTaskStore();
-const { state: taskState } = taskStore;
+const taskStore = useTaskStore()
+const { state: taskState } = taskStore
 
-const scenarioRef = ref<HTMLSelectElement | null>(null);
-const titleRef = ref<HTMLInputElement | null>(null);
-const briefRef = ref<HTMLTextAreaElement | null>(null);
+const scenarioRef = ref<HTMLSelectElement | null>(null)
+const titleRef = ref<HTMLInputElement | null>(null)
+const briefRef = ref<HTMLTextAreaElement | null>(null)
 
 const form = reactive({
-  scenario_key: "general",
-  title: "",
-  brief: "",
-  asset_urls: "",
-  ai_profile_id: "",
-  source_channel: "hub",
-});
+  scenario_key: 'general',
+  title: '',
+  brief: '',
+  asset_urls: '',
+  ai_profile_id: '',
+  source_channel: 'hub',
+})
 
-const errors = reactive<Record<string, string>>({});
-const validationSummary = ref("");
+const errors = reactive<Record<string, string>>({})
+const validationSummary = ref('')
 
-const summaryError = computed(() => validationSummary.value || taskState.createError || "");
+const summaryError = computed(() => validationSummary.value || taskState.createError || '')
 
 function resetForm() {
-  form.title = "";
-  form.brief = "";
-  form.asset_urls = "";
-  validationSummary.value = "";
-  Object.keys(errors).forEach((key) => delete errors[key]);
+  form.title = ''
+  form.brief = ''
+  form.asset_urls = ''
+  validationSummary.value = ''
+  Object.keys(errors).forEach((key) => delete errors[key])
 }
 
 function validate() {
-  Object.keys(errors).forEach((key) => delete errors[key]);
-  if (!form.scenario_key) errors.scenario_key = "请选择业务场景";
-  if (!form.title.trim()) errors.title = "请输入任务标题";
-  if (!form.brief.trim()) errors.input_payload = "请输入业务输入";
-  validationSummary.value = Object.keys(errors).length ? "提交失败，请先修正表单中的必填项。" : "";
-  return Object.keys(errors).length === 0;
+  Object.keys(errors).forEach((key) => delete errors[key])
+  if (!form.scenario_key) errors.scenario_key = '请选择业务场景'
+  if (!form.title.trim()) errors.title = '请输入任务标题'
+  if (!form.brief.trim()) errors.input_payload = '请输入业务输入'
+  validationSummary.value = Object.keys(errors).length ? '提交失败，请先修正表单中的必填项。' : ''
+  return Object.keys(errors).length === 0
 }
 
 function focusFirstError() {
-  if (errors.scenario_key) scenarioRef.value?.focus();
-  else if (errors.title) titleRef.value?.focus();
-  else if (errors.input_payload) briefRef.value?.focus();
+  if (errors.scenario_key) scenarioRef.value?.focus()
+  else if (errors.title) titleRef.value?.focus()
+  else if (errors.input_payload) briefRef.value?.focus()
 }
 
 async function submitForm() {
   if (!validate()) {
-    focusFirstError();
-    return;
+    focusFirstError()
+    return
   }
-  validationSummary.value = "";
+  validationSummary.value = ''
   try {
     await taskStore.createNewTask({
       scenario_key: form.scenario_key,
       title: form.title.trim(),
       ai_profile_id: form.ai_profile_id || null,
-      source_channel: form.source_channel || "hub",
+      source_channel: form.source_channel || 'hub',
       input_payload: {
         brief: form.brief.trim(),
         asset_urls: form.asset_urls
-          .split("\n")
+          .split('\n')
           .map((item) => item.trim())
           .filter(Boolean),
       },
-    });
+    })
   } catch {
-    Object.assign(errors, taskState.fieldErrors);
-    validationSummary.value = "提交失败，请检查高亮字段后重试。";
-    focusFirstError();
+    Object.assign(errors, taskState.fieldErrors)
+    validationSummary.value = '提交失败，请检查高亮字段后重试。'
+    focusFirstError()
   }
 }
 </script>

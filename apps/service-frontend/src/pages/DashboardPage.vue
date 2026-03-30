@@ -88,8 +88,37 @@ onBeforeUnmount(() => {
       <div class="quick-actions">
         <RouterLink class="button button-primary" to="/workbench">进入任务工作台</RouterLink>
         <RouterLink class="button button-secondary" to="/profiles">查看 AI 配置</RouterLink>
+        <RouterLink class="button button-secondary" :to="{ path: '/guide', hash: '#quick-start' }">快速上手</RouterLink>
         <RouterLink class="button button-secondary" to="/login">检查登录桥接</RouterLink>
       </div>
+    </section>
+
+    <section class="context-grid">
+      <article class="panel context-card stack gap-4">
+        <div>
+          <p class="eyebrow">New Here</p>
+          <h3>第一次使用建议先看这 3 件事</h3>
+        </div>
+        <ul class="list-dense">
+          <li>先确认登录态是否正常，再提交任务。</li>
+          <li>任务标题写清业务目标，业务输入写清约束与背景。</li>
+          <li>遇到 `review_required` 时，把它当作待人工判断，不要直接视为失败。</li>
+        </ul>
+        <RouterLink class="text-button" :to="{ path: '/guide', hash: '#quick-start' }">查看完整教程</RouterLink>
+      </article>
+
+      <article class="panel context-card stack gap-4">
+        <div>
+          <p class="eyebrow">Failure Path</p>
+          <h3>遇到异常时先看状态，再看 attempt</h3>
+        </div>
+        <ul class="list-dense">
+          <li>warning 横幅通常代表正在自动重试，不是最终失败。</li>
+          <li>failed 以后优先看任务详情里的最近一次尝试和错误说明。</li>
+          <li>如果频繁超时，再回到 AI 配置页调整 timeout 和重试策略。</li>
+        </ul>
+        <RouterLink class="text-button" :to="{ path: '/guide', hash: '#troubleshooting' }">查看排错指南</RouterLink>
+      </article>
     </section>
   </main>
 </template>

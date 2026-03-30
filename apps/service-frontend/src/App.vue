@@ -15,6 +15,7 @@ onMounted(() => {
 
 const navItems = computed(() => [
   { to: '/dashboard', label: 'Dashboard' },
+  { to: '/guide', label: '使用教程' },
   { to: '/workbench', label: '任务工作台' },
   { to: '/profiles', label: 'AI 配置' },
   { to: '/login', label: isAuthenticated.value ? '会话' : '登录' },
