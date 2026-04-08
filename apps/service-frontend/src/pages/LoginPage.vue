@@ -3,6 +3,7 @@ import { computed, onMounted } from 'vue'
 import { RouterLink } from 'vue-router'
 
 import { useHubSessionStore } from '../stores/useHubSessionStore'
+import { roleLabel } from '../utils/format'
 
 const sessionStore = useHubSessionStore()
 
@@ -21,7 +22,7 @@ function handleLogin() {
   <main class="page-shell stack gap-6">
     <section class="panel login-panel">
       <div>
-        <p class="eyebrow">Session Bridge</p>
+        <p class="eyebrow">会话桥接</p>
         <h3>模板不自建账号体系，只消费 Hub 会话</h3>
         <p class="muted">
           本地开发默认允许回退到开发身份。接入真实 Hub 后，这里只负责提示当前会话状态和回跳入口。
@@ -34,7 +35,7 @@ function handleLogin() {
         </div>
         <div>
           <span class="meta-label">角色</span>
-          <strong>{{ sessionStore.state.session?.role ?? '无角色' }}</strong>
+          <strong>{{ roleLabel(sessionStore.state.session?.role) }}</strong>
         </div>
       </div>
       <div class="quick-actions">
@@ -46,7 +47,7 @@ function handleLogin() {
     <section class="context-grid">
       <article class="panel context-card stack gap-4">
         <div>
-          <p class="eyebrow">Why Session Matters</p>
+          <p class="eyebrow">会话为何重要</p>
           <h3>会话异常会直接阻断业务区操作</h3>
         </div>
         <ul class="list-dense">
@@ -58,12 +59,12 @@ function handleLogin() {
 
       <article class="panel context-card stack gap-4">
         <div>
-          <p class="eyebrow">If Login Fails</p>
+          <p class="eyebrow">登录失败排查</p>
           <h3>登录后仍不可用时先检查这几项</h3>
         </div>
         <ul class="list-dense">
           <li>确认 Hub 回跳地址和当前服务地址一致。</li>
-          <li>确认浏览器没有阻止会话 cookie 或身份头注入。</li>
+          <li>确认浏览器没有阻止会话 Cookie 或身份头注入。</li>
           <li>重新进入工作台，看顶部横幅是否还在提示会话失效。</li>
         </ul>
         <RouterLink class="text-button" :to="{ path: '/guide', hash: '#faq' }">查看常见问题</RouterLink>

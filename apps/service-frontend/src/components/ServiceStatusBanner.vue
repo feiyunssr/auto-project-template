@@ -22,7 +22,7 @@
         <p>{{ description }}</p>
       </div>
       <div class="banner-metrics">
-        <span>队列 {{ health?.metrics.queued_jobs ?? 0 }}</span>
+        <span>排队 {{ health?.metrics.queued_jobs ?? 0 }}</span>
         <span>运行 {{ health?.metrics.running_jobs ?? 0 }}</span>
         <span>实例 {{ health?.instance_id?.slice(0, 8) ?? "--" }}</span>
       </div>
@@ -34,7 +34,7 @@
 import { computed } from "vue";
 
 import type { HealthResponse } from '../api/types'
-import { formatRelativeSeconds } from '../utils/format'
+import { formatRelativeSeconds, registrationStatusLabel, translateErrorMessage } from '../utils/format'
 import { useHubSessionStore } from '../stores/useHubSessionStore'
 
 const props = defineProps<{
@@ -68,10 +68,10 @@ const title = computed(() => {
 });
 
 const description = computed(() => {
-  if (props.error) return props.error;
-  if (!props.health) return "等待健康检查返回。";
-  const registration = String(props.health.registration?.status ?? "unknown");
-  return `注册状态 ${registration}，运行时长 ${formatRelativeSeconds(props.health.uptime_sec)}。`;
+  if (props.error) return translateErrorMessage(props.error);
+  if (!props.health) return "等待健康检查结果。";
+  const registration = registrationStatusLabel(String(props.health.registration?.status ?? "unknown"));
+  return `注册状态：${registration}，运行时长：${formatRelativeSeconds(props.health.uptime_sec)}。`;
 });
 
 function redirectToLogin() {

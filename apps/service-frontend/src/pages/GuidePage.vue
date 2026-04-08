@@ -1,18 +1,19 @@
 <script setup lang="ts">
 import { RouterLink } from 'vue-router'
+import { statusLabel } from '../utils/format'
 
 const statusItems = [
   {
     key: 'queued',
     label: '排队中',
     tone: 'neutral',
-    description: '任务已入队，等待 worker 领取。此时不需要重复提交。',
+    description: '任务已入队，等待工作进程领取。此时不需要重复提交。',
   },
   {
     key: 'running',
     label: '执行中',
     tone: 'neutral',
-    description: '系统正在调用 Provider 或整理结果，详情抽屉会持续刷新尝试记录。',
+    description: '系统正在调用模型服务或整理结果，详情抽屉会持续刷新尝试记录。',
   },
   {
     key: 'succeeded',
@@ -30,7 +31,7 @@ const statusItems = [
     key: 'failed',
     label: '失败',
     tone: 'danger',
-    description: '任务已达到最终失败态，优先检查输入、AI 配置、超时和最近一次 attempt。',
+    description: '任务已达到最终失败态，优先检查输入、AI 配置、超时和最近一次尝试记录。',
   },
 ]
 
@@ -38,15 +39,15 @@ const faqItems = [
   {
     question: '为什么我点击提交后没有立刻看到结果？',
     answer:
-      '本服务采用异步编排。提交后任务会先进入队列，再由 worker 执行，所以正确预期是先看状态，再看结果，而不是等待同步返回。',
+      '本服务采用异步编排。提交后任务会先进入队列，再由工作进程执行，所以正确预期是先看状态，再看结果，而不是等待同步返回。',
   },
   {
     question: 'AI 响应较慢，系统正在重试是什么意思？',
     answer:
-      '这表示当前 attempt 超时，但系统还没有判定最终失败。只要仍显示 warning 提示，就说明后台还在自动重试。',
+      '这表示当前尝试记录超时，但系统还没有判定最终失败。只要仍显示警告提示，就说明后台还在自动重试。',
   },
   {
-    question: '什么时候应该调整 AI Profile？',
+    question: '什么时候应该调整 AI 配置？',
     answer:
       '当你需要改变超时、重试次数、模型或并发限制时再调整。日常提交任务不必每次都改，默认配置应覆盖大多数场景。',
   },
@@ -58,7 +59,7 @@ const faqItems = [
   {
     question: '失败后第一步该看哪里？',
     answer:
-      '先看任务详情中的最近一次 attempt 和错误信息，再确认业务输入是否完整、AI Profile 是否过于激进、素材链接是否可访问。',
+      '先看任务详情中的最近一次尝试记录和错误信息，再确认业务输入是否完整、AI 配置是否过于激进、素材链接是否可访问。',
   },
 ]
 </script>
@@ -67,7 +68,7 @@ const faqItems = [
   <main class="page-shell stack gap-6">
     <section class="panel hero-panel">
       <div>
-        <p class="eyebrow">Guide Center</p>
+        <p class="eyebrow">帮助中心</p>
         <h3>把首次上手、状态判断和故障排查放到同一个帮助中心</h3>
         <p class="muted">
           教程页负责系统说明，页面内帮助负责就地解释。两者配合，用户不需要在长文档和业务区之间来回切换。
@@ -81,21 +82,21 @@ const faqItems = [
 
     <section class="guide-layout">
       <aside class="panel guide-nav">
-        <p class="eyebrow">Jump To</p>
+        <p class="eyebrow">跳转目录</p>
         <a class="guide-nav-link" href="#quick-start">3 步快速开始</a>
         <a class="guide-nav-link" href="#task-flow">任务流说明</a>
         <a class="guide-nav-link" href="#status-guide">状态判断</a>
         <a class="guide-nav-link" href="#profiles-guide">AI 配置策略</a>
         <a class="guide-nav-link" href="#session-guide">登录与会话</a>
         <a class="guide-nav-link" href="#troubleshooting">故障排查</a>
-        <a class="guide-nav-link" href="#faq">FAQ</a>
+        <a class="guide-nav-link" href="#faq">常见问题</a>
       </aside>
 
       <div class="guide-content stack gap-6">
         <section id="quick-start" class="panel stack gap-4 guide-section">
           <div class="section-heading">
             <div>
-              <p class="eyebrow">Quick Start</p>
+              <p class="eyebrow">快速开始</p>
               <h3>3 步完成第一次任务</h3>
             </div>
           </div>
@@ -105,10 +106,10 @@ const faqItems = [
               先在 <RouterLink to="/login">登录会话</RouterLink> 确认当前身份有效。如果你在本地开发环境，页面会说明是否启用了开发回退身份。
             </li>
             <li>
-              打开 <RouterLink to="/workbench">任务工作台</RouterLink>，填写业务场景、任务标题和业务输入。只有当你需要改变模型策略时，才去高级选项切换 AI Profile。
+              打开 <RouterLink to="/workbench">任务工作台</RouterLink>，填写业务场景、任务标题和业务输入。只有当你需要改变模型策略时，才去高级选项切换 AI 配置。
             </li>
             <li>
-              提交后盯住状态横幅和任务列表，必要时打开详情抽屉查看 attempt。不要在排队中或执行中重复提交同一任务。
+              提交后盯住状态横幅和任务列表，必要时打开详情抽屉查看尝试记录。不要在排队中或执行中重复提交同一任务。
             </li>
           </ol>
         </section>
@@ -116,7 +117,7 @@ const faqItems = [
         <section id="task-flow" class="panel stack gap-4 guide-section">
           <div class="section-heading">
             <div>
-              <p class="eyebrow">Task Flow</p>
+              <p class="eyebrow">任务流程</p>
               <h3>任务是怎样从输入走到结果的</h3>
             </div>
           </div>
@@ -131,13 +132,13 @@ const faqItems = [
             <article class="advanced-box context-card stack gap-3">
               <strong>异步编排</strong>
               <p class="muted">
-                后端会把任务放进队列，由 worker 领取并调用 Provider。耗时长是正常现象，所以列表和详情是主视图，不是弹窗结果。
+                后端会把任务放进队列，由工作进程领取并调用模型服务。耗时长是正常现象，所以列表和详情是主视图，不是弹窗结果。
               </p>
             </article>
             <article class="advanced-box context-card stack gap-3">
               <strong>结果落库</strong>
               <p class="muted">
-                成功后结果会保存为可回查记录。即使失败，也应该保留任务号、attempt 和错误信息，方便定位问题和重新提交。
+                成功后结果会保存为可回查记录。即使失败，也应该保留任务号、尝试记录和错误信息，方便定位问题和重新提交。
               </p>
             </article>
           </div>
@@ -151,7 +152,7 @@ const faqItems = [
         <section id="status-guide" class="panel stack gap-4 guide-section">
           <div class="section-heading">
             <div>
-              <p class="eyebrow">Status Guide</p>
+              <p class="eyebrow">状态说明</p>
               <h3>如何读懂任务状态</h3>
             </div>
           </div>
@@ -160,7 +161,7 @@ const faqItems = [
             <article v-for="item in statusItems" :key="item.key" class="advanced-box context-card stack gap-3">
               <div class="row space-between">
                 <strong>{{ item.label }}</strong>
-                <span class="status-badge" :data-tone="item.tone">{{ item.key }}</span>
+                <span class="status-badge" :data-tone="item.tone">{{ statusLabel(item.key) }}</span>
               </div>
               <p class="muted">{{ item.description }}</p>
             </article>
@@ -170,15 +171,15 @@ const faqItems = [
         <section id="profiles-guide" class="panel stack gap-4 guide-section">
           <div class="section-heading">
             <div>
-              <p class="eyebrow">AI Profiles</p>
+              <p class="eyebrow">AI 配置</p>
               <h3>什么时候该调 AI 配置，什么时候不该</h3>
             </div>
           </div>
 
           <ul class="list-dense">
-            <li>默认配置适合大多数任务，不要把 AI Profile 当成每次必改的输入项。</li>
-            <li>当你连续遇到超时、结果风格不稳定或并发限制不合理时，再去改 timeout、retries、model 和 concurrency。</li>
-            <li>Profile 影响的是后续新任务，不会回溯修改历史记录。</li>
+            <li>默认配置适合大多数任务，不要把 AI 配置当成每次必改的输入项。</li>
+            <li>当你连续遇到超时、结果风格不稳定或并发限制不合理时，再去改超时、重试次数、模型和并发限制。</li>
+            <li>AI 配置影响的是后续新任务，不会回溯修改历史记录。</li>
           </ul>
 
           <div class="quick-actions">
@@ -191,7 +192,7 @@ const faqItems = [
         <section id="session-guide" class="panel stack gap-4 guide-section">
           <div class="section-heading">
             <div>
-              <p class="eyebrow">Session Bridge</p>
+              <p class="eyebrow">会话桥接</p>
               <h3>为什么登录态会影响业务区操作</h3>
             </div>
           </div>
@@ -206,7 +207,7 @@ const faqItems = [
         <section id="troubleshooting" class="panel stack gap-4 guide-section">
           <div class="section-heading">
             <div>
-              <p class="eyebrow">Troubleshooting</p>
+              <p class="eyebrow">故障排查</p>
               <h3>常见失败与处理办法</h3>
             </div>
           </div>
@@ -220,12 +221,12 @@ const faqItems = [
             <article class="advanced-box stack gap-3">
               <strong>AI 超时重试</strong>
               <p class="muted">现象：横幅显示“系统正在重试”，任务仍未进入最终失败。</p>
-              <p class="muted">处理：先等待重试结束；若频繁出现，再调整 Profile 的 timeout 或减少输入复杂度。</p>
+              <p class="muted">处理：先等待重试结束；若频繁出现，再调整 AI 配置的超时参数或减少输入复杂度。</p>
             </article>
             <article class="advanced-box stack gap-3">
               <strong>最终失败</strong>
-              <p class="muted">现象：任务状态变为 failed，详情里可以看到最近一次 attempt。</p>
-              <p class="muted">处理：先检查业务输入是否明确、素材链接是否有效、Profile 是否合适，再决定是否重试。</p>
+              <p class="muted">现象：任务状态变为失败，详情里可以看到最近一次尝试记录。</p>
+              <p class="muted">处理：先检查业务输入是否明确、素材链接是否有效、AI 配置是否合适，再决定是否重试。</p>
             </article>
           </div>
         </section>
@@ -233,7 +234,7 @@ const faqItems = [
         <section id="faq" class="panel stack gap-4 guide-section">
           <div class="section-heading">
             <div>
-              <p class="eyebrow">FAQ</p>
+              <p class="eyebrow">常见问题</p>
               <h3>高频问题</h3>
             </div>
           </div>

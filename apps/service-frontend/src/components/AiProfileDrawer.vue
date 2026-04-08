@@ -24,16 +24,16 @@
         </label>
 
         <div class="stack gap-4">
-          <label class="field-group"><span class="field-label">Profile Key</span><input class="field-input" :value="profileState.draft.profile_key" @input="patch('profile_key', $event)" /></label>
+          <label class="field-group"><span class="field-label">配置标识</span><input class="field-input" :value="profileState.draft.profile_key" @input="patch('profile_key', $event)" /></label>
           <label class="field-group"><span class="field-label">配置名称</span><input class="field-input" :value="profileState.draft.profile_name" @input="patch('profile_name', $event)" /></label>
           <label class="field-group"><span class="field-label">模型</span><input class="field-input" :value="profileState.draft.model_name" @input="patch('model_name', $event)" /></label>
           <label class="field-group"><span class="field-label">系统提示词</span><textarea class="field-input field-textarea" :value="profileState.draft.system_prompt" @input="patch('system_prompt', $event)" /></label>
-          <label class="field-group"><span class="field-label">Prompt 模板</span><textarea class="field-input field-textarea" :value="profileState.draft.prompt_template" @input="patch('prompt_template', $event)" /></label>
+          <label class="field-group"><span class="field-label">提示词模板</span><textarea class="field-input field-textarea" :value="profileState.draft.prompt_template" @input="patch('prompt_template', $event)" /></label>
           <div class="meta-grid">
-            <label class="field-group"><span class="field-label">超时 ms</span><input class="field-input" type="number" :value="profileState.draft.timeout_ms" @input="patchNumber('timeout_ms', $event)" /></label>
+            <label class="field-group"><span class="field-label">超时（毫秒）</span><input class="field-input" type="number" :value="profileState.draft.timeout_ms" @input="patchNumber('timeout_ms', $event)" /></label>
             <label class="field-group"><span class="field-label">最大重试</span><input class="field-input" type="number" :value="profileState.draft.max_retries" @input="patchNumber('max_retries', $event)" /></label>
             <label class="field-group"><span class="field-label">并发限制</span><input class="field-input" type="number" :value="profileState.draft.concurrency_limit" @input="patchNumber('concurrency_limit', $event)" /></label>
-            <label class="field-group"><span class="field-label">Max Tokens</span><input class="field-input" type="number" :value="profileState.draft.max_tokens" @input="patchNumber('max_tokens', $event)" /></label>
+            <label class="field-group"><span class="field-label">最大输出 Token 数</span><input class="field-input" type="number" :value="profileState.draft.max_tokens" @input="patchNumber('max_tokens', $event)" /></label>
           </div>
         </div>
 
@@ -41,7 +41,7 @@
           <button class="primary-button" type="button" :disabled="profileState.saving" @click="profileStore.saveDraft()">
             {{ profileState.saving ? "保存中..." : "保存配置" }}
           </button>
-          <p class="muted-text">timeout / retries 仅影响后续新任务。</p>
+          <p class="muted-text">超时和重试次数仅影响后续新任务。</p>
         </div>
       </aside>
     </div>

@@ -29,7 +29,7 @@ const router = createRouter({
   },
   routes: [
     { path: '/', redirect: '/dashboard' },
-    { path: '/dashboard', component: DashboardPage, meta: { title: 'Dashboard' } },
+    { path: '/dashboard', component: DashboardPage, meta: { title: '总览面板' } },
     { path: '/guide', component: GuidePage, meta: { title: '使用教程' } },
     { path: '/workbench', component: WorkbenchPage, meta: { title: '任务工作台' } },
     { path: '/profiles', component: ProfilesPage, meta: { title: 'AI 配置' } },

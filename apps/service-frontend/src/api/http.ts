@@ -1,4 +1,5 @@
 import type { ApiError } from './types'
+import { translateErrorMessage } from '../utils/format'
 
 const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL ?? '/api/v1').replace(/\/$/, '')
 
@@ -32,7 +33,7 @@ export async function request<T>(
     const payload = (await response.json().catch(() => null)) as ApiError | null
     throw {
       code: payload?.code ?? 'REQUEST_FAILED',
-      message: payload?.message ?? 'Request failed.',
+      message: translateErrorMessage(payload?.message ?? 'Request failed.', payload?.code ?? 'REQUEST_FAILED'),
       field_errors: payload?.field_errors ?? {},
       details: payload?.details ?? {},
       status: response.status,

@@ -35,10 +35,8 @@
       <tbody>
         <tr v-for="task in taskState.items" :key="task.id">
           <td>
-            <button class="table-link" type="button" @click="openDetail(task.id)">
-              {{ task.title }}
-            </button>
-            <p class="muted-text">{{ task.job_no }} / {{ task.scenario_key }}</p>
+            <button class="table-link" type="button" @click="openDetail(task.id)">{{ task.title }}</button>
+            <p class="muted-text">{{ task.job_no }} / {{ scenarioLabel(task.scenario_key) }}</p>
           </td>
           <td>
             <TaskStatusBadge :status="task.status" />
@@ -57,7 +55,7 @@
 
 <script setup lang="ts">
 import type { TaskSummary } from '../api/types'
-import { formatDateTime } from '../utils/format'
+import { formatDateTime, scenarioLabel, translateErrorMessage } from '../utils/format'
 import { useTaskStore } from '../stores/useTaskStore'
 import TaskStatusBadge from "./TaskStatusBadge.vue";
 
@@ -82,6 +80,6 @@ function secondaryText(task: TaskSummary) {
   if (task.status === "review_required") {
     return "结果已生成，等待人工复核";
   }
-  return String(task.result_summary?.message ?? task.error_message ?? "最近已同步");
+  return translateErrorMessage(String(task.result_summary?.message ?? task.error_message ?? "最近已同步"), task.error_code);
 }
 </script>

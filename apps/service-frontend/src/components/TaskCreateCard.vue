@@ -53,7 +53,7 @@
         <summary>高级选项</summary>
         <div class="stack gap-4 details-body">
           <label class="field-group">
-            <span class="field-label">AI Profile</span>
+            <span class="field-label">AI 配置方案</span>
             <select v-model="form.ai_profile_id" class="field-input field-select">
               <option value="">使用默认配置</option>
               <option v-for="profile in profiles" :key="profile.id" :value="profile.id">
@@ -72,9 +72,9 @@
 
       <div class="row gap-3">
         <button class="primary-button" type="submit" :disabled="taskState.submitting || disabled">
-          {{ taskState.submitting ? "已提交，处理中..." : "提交任务" }}
+          {{ taskState.submitting ? "正在提交..." : "提交任务" }}
         </button>
-        <button class="secondary-button" type="button" :disabled="taskState.submitting" @click="resetForm">新建任务</button>
+        <button class="secondary-button" type="button" :disabled="taskState.submitting" @click="resetForm">重置表单</button>
       </div>
     </form>
   </section>

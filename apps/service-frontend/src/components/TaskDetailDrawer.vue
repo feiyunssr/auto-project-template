@@ -12,7 +12,7 @@
         </header>
 
         <div v-if="taskState.detailError" class="inline-message" data-tone="danger">
-          {{ taskState.detailError }}
+          {{ translateErrorMessage(taskState.detailError) }}
         </div>
         <div v-if="taskState.loadingDetail && !detail" class="empty-state">任务详情加载中...</div>
         <template v-else-if="detail">
@@ -34,7 +34,7 @@
             </div>
             <div class="meta-grid">
               <div><span class="meta-label">提交人</span><strong>{{ detail.submitted_by_name || detail.submitted_by_hub_user_id }}</strong></div>
-              <div><span class="meta-label">场景</span><strong>{{ detail.scenario_key }}</strong></div>
+              <div><span class="meta-label">场景</span><strong>{{ scenarioLabel(detail.scenario_key) }}</strong></div>
               <div><span class="meta-label">更新时间</span><strong>{{ formatDateTime(detail.updated_at) }}</strong></div>
               <div><span class="meta-label">最大重试</span><strong>{{ detail.max_retries ?? "--" }}</strong></div>
             </div>
@@ -51,7 +51,7 @@
             第 {{ detail.current_attempt_no }} 次尝试已超时，系统将继续重试；详情面板会保留最近一次成功结果。
           </section>
           <section v-if="detail.error_message" class="inline-message" data-tone="danger">
-            {{ detail.error_message }}
+            {{ translateErrorMessage(detail.error_message, detail.error_code) }}
           </section>
           <section v-if="detail.last_success_result && detail.status === 'failed'" class="inline-message" data-tone="warning">
             当前重跑失败，以下展示最近一次成功结果。
@@ -67,7 +67,7 @@
                   <span class="muted-text">{{ formatDateTime(attempt.started_at) }}</span>
                 </div>
                 <p class="muted-text">
-                  {{ attempt.status }} · {{ attempt.error_message || attempt.error_code || "调用中" }}
+                  {{ attemptStatusLabel(attempt.status) }} · {{ attemptMessage(attempt.error_message, attempt.error_code, attempt.status) }}
                 </p>
               </li>
             </ol>
@@ -84,7 +84,7 @@
             <pre class="code-block">{{ formatJson(detail.input_payload) }}</pre>
             <ul v-if="detail.artifacts.length" class="artifact-list">
               <li v-for="artifact in detail.artifacts" :key="artifact.id">
-                <span>{{ artifact.artifact_role }}</span>
+                <span>{{ artifactRoleLabel(artifact.artifact_role) }}</span>
                 <a :href="artifact.uri" target="_blank" rel="noreferrer">{{ artifact.uri }}</a>
               </li>
             </ul>
@@ -98,7 +98,14 @@
 <script setup lang="ts">
 import { computed } from "vue";
 
-import { formatDateTime, formatJson } from '../utils/format'
+import {
+  artifactRoleLabel,
+  attemptStatusLabel,
+  formatDateTime,
+  formatJson,
+  scenarioLabel,
+  translateErrorMessage,
+} from '../utils/format'
 import { useTaskStore } from '../stores/useTaskStore'
 import TaskStatusBadge from "./TaskStatusBadge.vue";
 
@@ -106,4 +113,11 @@ const taskStore = useTaskStore();
 const { state: taskState, selectedTask: detail } = taskStore;
 
 const activeResult = computed(() => detail.value?.results[0] ?? detail.value?.last_success_result ?? null);
+
+function attemptMessage(errorMessage?: string | null, errorCode?: string | null, status?: string) {
+  if (errorMessage || errorCode) {
+    return translateErrorMessage(errorMessage ?? errorCode, errorCode)
+  }
+  return status === "running" ? "调用中" : "本次尝试已完成"
+}
 </script>

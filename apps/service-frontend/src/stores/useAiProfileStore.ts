@@ -23,7 +23,7 @@ export interface AiProfileDraft {
 
 const emptyDraft = (): AiProfileDraft => ({
   profile_key: "default-general",
-  profile_name: "Default General Profile",
+  profile_name: "默认通用配置",
   scenario_key: "general",
   is_default: true,
   is_active: true,

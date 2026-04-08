@@ -12,7 +12,7 @@ function readBooleanEnv(value: string | undefined, fallback: boolean): boolean {
 const HUB_AUTH_REQUIRED = readBooleanEnv(import.meta.env.VITE_REQUIRE_HUB_AUTH, false);
 const FALLBACK_SESSION: HubSession = {
   hubUserId: import.meta.env.VITE_DEV_HUB_USER_ID ?? "local-dev-user",
-  hubUserName: import.meta.env.VITE_DEV_HUB_USER_NAME ?? "Local Operator",
+  hubUserName: import.meta.env.VITE_DEV_HUB_USER_NAME ?? "本地操作员",
   role: import.meta.env.VITE_DEV_HUB_ROLE ?? "operator",
   loginUrl: import.meta.env.VITE_HUB_LOGIN_URL,
 };

@@ -4,6 +4,7 @@ import { RouterLink, RouterView, useRoute } from 'vue-router'
 
 import { restoreSession } from './composables/session'
 import { useHubSessionStore } from './stores/useHubSessionStore'
+import { roleLabel } from './utils/format'
 
 const route = useRoute()
 const sessionStore = useHubSessionStore()
@@ -14,7 +15,7 @@ onMounted(() => {
 })
 
 const navItems = computed(() => [
-  { to: '/dashboard', label: 'Dashboard' },
+  { to: '/dashboard', label: '概览' },
   { to: '/guide', label: '使用教程' },
   { to: '/workbench', label: '任务工作台' },
   { to: '/profiles', label: 'AI 配置' },
@@ -23,21 +24,21 @@ const navItems = computed(() => [
 
 const shellEyebrow = computed(() => {
   if (sessionState.authExpired) {
-    return 'Session Blocked'
+    return '会话受阻'
   }
 
-  return isAuthenticated.value ? 'Hub Linked' : 'Guest Access'
+  return isAuthenticated.value ? '已连接 Hub' : '本地开发会话'
 })
 
 const currentUserLabel = computed(() => sessionState.session?.hubUserName ?? sessionState.session?.hubUserId ?? '未登录')
-const currentRoleLabel = computed(() => sessionState.session?.role ?? '无角色')
+const currentRoleLabel = computed(() => roleLabel(sessionState.session?.role))
 
 const sessionDescription = computed(() => {
   if (sessionState.authExpired) {
     return '当前会话已失效，业务区会暂停提交和轮询，并自动回到 Hub 登录页。'
   }
 
-  return '模板默认继承 ai-auto 的路由壳层、配色语义、worker 拆分与部署基线，业务区只补自身流程。'
+  return '模板默认继承 ai-auto 的路由壳层、配色语义、工作进程拆分与部署基线，业务区只补自身流程。'
 })
 
 const statusLabel = computed(() => {
@@ -75,7 +76,7 @@ function isActive(path: string) {
       </nav>
 
       <div class="sidebar-session panel">
-        <p class="eyebrow">Current Session</p>
+        <p class="eyebrow">当前会话</p>
         <strong>{{ currentUserLabel }}</strong>
         <p class="muted">{{ currentRoleLabel }}</p>
         <p class="muted sidebar-status">{{ statusLabel }}</p>
@@ -88,7 +89,7 @@ function isActive(path: string) {
     <main class="content">
       <header class="topbar">
         <div>
-          <p class="eyebrow">Workspace</p>
+          <p class="eyebrow">工作区</p>
           <h2>{{ route.meta.title ?? 'AI Auto 子服务模板' }}</h2>
         </div>
         <p class="muted topbar-meta">
