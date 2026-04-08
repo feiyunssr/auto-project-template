@@ -1,11 +1,14 @@
 from __future__ import annotations
 
+from hmac import compare_digest
+
 from fastapi import Header, Request
 
 from app.core.config import get_settings
-from app.core.errors import AuthRequiredError
+from app.core.errors import AuthRequiredError, ServiceApiAuthError, ServiceApiDisabledError
 from app.db import get_db_session
 from app.schemas.common import AuthContext
+from app.schemas.service_api import ServiceApiAuthContext
 
 
 async def get_auth_context(
@@ -29,8 +32,28 @@ async def get_auth_context(
     )
 
 
+async def get_service_api_auth_context(
+    authorization: str | None = Header(default=None),
+) -> ServiceApiAuthContext:
+    settings = get_settings()
+    if not settings.enable_service_api or not settings.service_api_bearer_token:
+        raise ServiceApiDisabledError()
+    if authorization is None:
+        raise ServiceApiAuthError("Service API bearer token is required.")
+    scheme, _, token = authorization.partition(" ")
+    if scheme.lower() != "bearer" or not token:
+        raise ServiceApiAuthError("Authorization header must use Bearer token.")
+    if not compare_digest(token, settings.service_api_bearer_token):
+        raise ServiceApiAuthError()
+    return ServiceApiAuthContext(
+        submitter_id=settings.service_api_submitter_id,
+        submitter_name=settings.service_api_submitter_name,
+        source_channel=settings.service_api_source_channel,
+    )
+
+
 def get_runtime(request: Request):
     return request.app.state.runtime
 
 
-__all__ = ["get_auth_context", "get_db_session", "get_runtime"]
+__all__ = ["get_auth_context", "get_db_session", "get_runtime", "get_service_api_auth_context"]

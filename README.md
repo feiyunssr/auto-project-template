@@ -48,6 +48,7 @@
 - 本地 AI Profile 配置中心
 - Hub 登录桥接与状态透传
 - `/healthz` 和 Hub 自动注册骨架
+- 面向其他内部服务的 Bearer Token 异步任务 API
 
 ## 仓库结构
 
@@ -154,6 +155,63 @@ bash scripts/dev.sh stop
 
 - `SERVICE_BACKEND_HUB_SERVICE_ID`
 - `SERVICE_BACKEND_HUB_SERVICE_TOKEN`
+
+如果要让其他内部服务直接调用子服务任务 API，还需要配置：
+
+- `SERVICE_BACKEND_ENABLE_SERVICE_API=true`
+- `SERVICE_BACKEND_SERVICE_API_BEARER_TOKEN=<shared-internal-token>`
+
+说明：
+
+- `service-api` 走独立 Bearer Token 认证，不依赖 `x-hub-user-*` 头。
+- `service-api` 默认只允许访问通过同一 Bearer Token 创建的任务，不会读取前端人工创建的任务。
+- 当前默认协议是“异步任务型”：创建任务后返回 `task_id`，调用方自行轮询状态与结果。
+
+## 服务间 API 调用
+
+用于给其他内部服务调用的接口：
+
+- `POST /api/v1/service-api/tasks`
+- `GET /api/v1/service-api/tasks/{job_id}`
+- `GET /api/v1/service-api/tasks/{job_id}/result`
+
+创建任务示例：
+
+```bash
+curl -X POST http://127.0.0.1:11010/api/v1/service-api/tasks \
+  -H 'Authorization: Bearer your-service-token' \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "scenario_key": "general",
+    "title": "Generate copy by API",
+    "input_payload": {
+      "brief": "spring sale ad copy"
+    }
+  }'
+```
+
+返回示例字段：
+
+- `id`
+- `job_no`
+- `status`
+- `current_attempt_no`
+- `retryable`
+- `error_code`
+- `error_message`
+
+轮询结果示例：
+
+```bash
+curl http://127.0.0.1:11010/api/v1/service-api/tasks/<job_id>/result \
+  -H 'Authorization: Bearer your-service-token'
+```
+
+结果接口会返回统一状态包：
+
+- 处理中：`status=queued|running`，`result=null`
+- 成功：`status=succeeded|review_required`，`result` 带结构化结果
+- 失败：`status=failed`，`result=null`，并返回 `error_code` / `error_message`
 
 ## 部署建议
 

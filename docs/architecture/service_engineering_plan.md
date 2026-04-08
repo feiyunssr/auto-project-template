@@ -1,6 +1,6 @@
 # 子服务工程实施计划
 - 文档状态：Draft for Implementation
-- 更新日期：2026-03-30
+- 更新日期：2026-04-08
 - 输入依据：`docs/PRD/service_prd.md`、`README.md`
 - 适用范围：AI Auto Hub 体系下的单业务能力节点型子服务
 
@@ -83,7 +83,7 @@ Provider 字段：`provider_name`，`provider_model`，`external_request_id`
 
 ## 4. 外部 AI 接口调用逻辑与工作流编排
 主流程：
-1. 前端提交任务，后端完成参数校验、Hub 登录态校验和幂等键校验。
+1. 前端或其他内部服务提交任务，后端完成参数校验、身份校验和幂等键校验。
 2. API 写入 `service_job`，状态置为 `queued`，不在请求线程内直接执行任务。
 3. 独立 worker 进程轮询数据库中的 `queued` 任务，加载 `service_ai_profile`、业务输入和关联素材。
 4. Orchestrator 执行四段式流程：`prepare -> invoke provider -> normalize result -> persist output`。
@@ -96,17 +96,27 @@ Provider 字段：`provider_name`，`provider_model`，`external_request_id`
 - 幂等保护：建议使用 `submitted_by_hub_user_id + normalized_payload_hash + time_bucket` 生成业务幂等键。
 - 错误分层：至少区分业务校验失败、Provider 超时、Provider 限流、后处理失败。
 - 审计留痕：只保存脱敏请求摘要，不保存明文密钥。
+内部服务调用补充协议：
+- 新增独立路由组 `/api/v1/service-api/*`，不与前端使用的 `/api/v1/tasks` 复用认证协议。
+- `service-api` 使用 `Authorization: Bearer <token>` 认证；当 `SERVICE_BACKEND_ENABLE_SERVICE_API=false` 或未配置 token 时返回 `SERVICE_API_DISABLED`。
+- `POST /api/v1/service-api/tasks` 只接受 `scenario_key`、`title`、`ai_profile_id`、`input_payload`，由后端固定写入 `source_channel=service_api`。
+- `GET /api/v1/service-api/tasks/{job_id}` 返回任务状态、最近一次成功结果和 attempts 摘要，供机器轮询使用。
+- `GET /api/v1/service-api/tasks/{job_id}/result` 返回统一状态包：处理中返回 `result=null`，成功返回结构化结果，失败返回 `error_code` 与 `error_message`。
+- `service-api` 的幂等键命名空间与前端任务接口分离，避免不同调用通道互相命中同一幂等记录。
 状态与错误协议补充：
 - 登录态失效时，任务接口和配置接口应返回 HTTP `401/403` 或业务码 `AUTH_REQUIRED`；前端收到后立即停止轮询、清空敏感内存态并跳转 Hub 登录。
+- Service API Bearer token 缺失、格式错误或不匹配时，应返回 HTTP `401` 和业务码 `SERVICE_API_AUTH_REQUIRED`。
 - Provider 单次超时但仍可重试时，任务详情应返回 `status=running`，并附带 `error_code=PROVIDER_TIMEOUT_RETRYING`、`current_attempt_no`、`max_retries`。
 - Provider 超时且重试耗尽时，任务详情应返回 `status=failed`，并附带 `error_code=PROVIDER_TIMEOUT_FINAL`、`retryable=true` 和面向用户的 `error_message`。
 - 表单或业务校验失败时，创建接口应返回 `VALIDATION_ERROR` 和 `field_errors`，其中 `field_errors` 必须可直接映射到前端字段组件。
 - `review_required` 必须作为独立业务状态返回，不得复用 `failed` 或以空结果代替。
 推荐模块拆分：
 - `apps/service-backend/app/api/routes/tasks.py`
+- `apps/service-backend/app/api/routes/service_api.py`
 - `apps/service-backend/app/api/routes/settings.py`
 - `apps/service-backend/app/api/routes/ops.py`
 - `apps/service-backend/app/api/router.py`
+- `apps/service-backend/app/services/task_requests.py`
 - `apps/service-backend/app/services/orchestrator.py`
 - `apps/service-backend/app/services/providers/base.py`
 - `apps/service-backend/app/services/providers/*.py`

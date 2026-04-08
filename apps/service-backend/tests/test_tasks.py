@@ -5,6 +5,7 @@ HEADERS = {
     "X-Hub-User-Name": "Zero",
     "X-Hub-Role": "operator",
 }
+SERVICE_API_HEADERS = {"Authorization": "Bearer test-service-token"}
 
 
 def wait_for_status(client, job_id: str, expected: set[str], timeout_sec: float = 5.0):
@@ -17,6 +18,18 @@ def wait_for_status(client, job_id: str, expected: set[str], timeout_sec: float 
             return payload
         time.sleep(0.1)
     raise AssertionError(f"job {job_id} did not reach {expected} within {timeout_sec}s")
+
+
+def wait_for_service_api_status(client, job_id: str, expected: set[str], timeout_sec: float = 5.0):
+    started = time.time()
+    while time.time() - started < timeout_sec:
+        response = client.get(f"/api/v1/service-api/tasks/{job_id}", headers=SERVICE_API_HEADERS)
+        assert response.status_code == 200, response.text
+        payload = response.json()
+        if payload["status"] in expected:
+            return payload
+        time.sleep(0.1)
+    raise AssertionError(f"service-api job {job_id} did not reach {expected} within {timeout_sec}s")
 
 
 def test_create_task_runs_to_success_and_is_idempotent(client):
@@ -196,3 +209,81 @@ def test_healthz_reports_degraded_when_hub_registration_missing(client):
     assert payload["status"] in {"healthy", "degraded"}
     assert payload["checks"]["database"]["status"] == "healthy"
     assert payload["checks"]["hub_registration"]["status"] == "degraded"
+
+
+def test_service_api_requires_bearer_token(client):
+    response = client.post(
+        "/api/v1/service-api/tasks",
+        json={
+            "scenario_key": "general",
+            "title": "Missing token",
+            "input_payload": {"content": "hello"},
+        },
+    )
+    assert response.status_code == 401, response.text
+    payload = response.json()
+    assert payload["code"] == "SERVICE_API_AUTH_REQUIRED"
+
+
+def test_service_api_create_task_runs_to_success_and_returns_result(client):
+    response = client.post(
+        "/api/v1/service-api/tasks",
+        json={
+            "scenario_key": "general",
+            "title": "Service API task",
+            "input_payload": {"content": "service api hello"},
+        },
+        headers=SERVICE_API_HEADERS,
+    )
+    assert response.status_code == 202, response.text
+    payload = response.json()
+    assert payload["status"] == "queued"
+
+    detail = wait_for_service_api_status(client, payload["id"], {"succeeded"})
+    assert detail["last_success_result"]["preview_text"].startswith("service api hello ::")
+
+    result = client.get(f"/api/v1/service-api/tasks/{payload['id']}/result", headers=SERVICE_API_HEADERS)
+    assert result.status_code == 200, result.text
+    result_payload = result.json()
+    assert result_payload["status"] == "succeeded"
+    assert result_payload["result"]["preview_text"].startswith("service api hello ::")
+
+
+def test_service_api_result_endpoint_returns_failure_state_without_fake_result(client):
+    response = client.post(
+        "/api/v1/service-api/tasks",
+        json={
+            "scenario_key": "general",
+            "title": "Service API timeout",
+            "input_payload": {"content": "slow", "simulate": "timeout_always"},
+        },
+        headers=SERVICE_API_HEADERS,
+    )
+    assert response.status_code == 202, response.text
+
+    wait_for_service_api_status(client, response.json()["id"], {"failed"}, timeout_sec=8.0)
+    result = client.get(f"/api/v1/service-api/tasks/{response.json()['id']}/result", headers=SERVICE_API_HEADERS)
+    assert result.status_code == 200, result.text
+    payload = result.json()
+    assert payload["status"] == "failed"
+    assert payload["error_code"] == "PROVIDER_TIMEOUT_FINAL"
+    assert payload["result"] is None
+
+
+def test_service_api_cannot_read_frontend_created_task(client):
+    response = client.post(
+        "/api/v1/tasks",
+        json={
+            "scenario_key": "general",
+            "title": "Frontend owned task",
+            "input_payload": {"content": "human task"},
+        },
+        headers=HEADERS,
+    )
+    assert response.status_code == 200, response.text
+
+    forbidden = client.get(
+        f"/api/v1/service-api/tasks/{response.json()['id']}",
+        headers=SERVICE_API_HEADERS,
+    )
+    assert forbidden.status_code == 404, forbidden.text

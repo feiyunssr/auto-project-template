@@ -56,6 +56,11 @@ class Settings(BaseSettings):
         default=False,
         validation_alias=AliasChoices("SERVICE_BACKEND_REQUIRE_HUB_AUTH", "REQUIRE_HUB_AUTH"),
     )
+    enable_service_api: bool = False
+    service_api_bearer_token: str | None = None
+    service_api_submitter_id: str = "service-api"
+    service_api_submitter_name: str = "Service API"
+    service_api_source_channel: str = "service_api"
     dev_hub_user_id: str = "local-dev-user"
     dev_hub_user_name: str = "Local Operator"
     dev_hub_role: str = "operator"

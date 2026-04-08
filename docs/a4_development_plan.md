@@ -259,6 +259,35 @@
   - 页面入口应是独立导航项，同时在关键页面提供 contextual help，而不是把所有帮助都压在一个页面里。
 - 后续若进入实现阶段，默认新增一个路由化帮助页面，而不是把教程内容塞进 Dashboard Hero 或登录页说明文案。
 
+### 服务间 API 调用能力记录 (2026-04-08 UTC)
+- 已新增面向内部服务的独立异步任务接口：
+  - `POST /api/v1/service-api/tasks`
+  - `GET /api/v1/service-api/tasks/{job_id}`
+  - `GET /api/v1/service-api/tasks/{job_id}/result`
+- 已新增独立 Bearer Token 认证链路：
+  - `SERVICE_BACKEND_ENABLE_SERVICE_API`
+  - `SERVICE_BACKEND_SERVICE_API_BEARER_TOKEN`
+  - Bearer token 缺失或错误时统一返回 `401 SERVICE_API_AUTH_REQUIRED`
+- 已将前端任务接口与服务间任务接口的公共逻辑下沉到 `app/services/task_requests.py`，统一复用任务号生成、payload 归一化、幂等键和任务详情构建逻辑，避免两套协议行为漂移。
+- 已约束 `service-api` 只能读取由同一 Bearer 调用链路创建的任务，避免机器接口越权读取前端人工任务。
+- 已完成回归验证：
+  - `cd apps/service-backend && ../../.venv/bin/python -m compileall app`
+  - `cd apps/service-backend && ../../.venv/bin/pytest tests/test_tasks.py`
+  - 结果：`16 passed`
+
+### 服务间 API 复审记录 (2026-04-08 UTC)
+- 复审结论：主功能已落地，可判定“API 调用能力已实现”，但当前更准确的状态应为 `DONE_WITH_CONCERNS`，不建议把它表述成“零遗漏的完全收尾”。
+- 本轮已复核实现与验证：
+  - 路由已接入 `apps/service-backend/app/api/routes/service_api.py`
+  - Bearer Token 依赖已接入 `apps/service-backend/app/api/dependencies.py`
+  - 任务公共逻辑已下沉到 `apps/service-backend/app/services/task_requests.py`
+  - 本地复验 `cd apps/service-backend && ../../.venv/bin/python -m compileall app`
+  - 本地复验 `cd apps/service-backend && ../../.venv/bin/pytest tests/test_tasks.py`
+- 复审确认的剩余遗漏 / 尾项：
+  - `/api/v1/service-api/tasks/{job_id}/result` 当前直接回传 `last_success_result`；如果未来出现“同一任务历史成功、当前状态非成功”的多版本场景，会与工程方案中“处理中/失败时 `result=null`”的协议不一致，需按 `job.status` 显式裁剪返回。
+  - 测试仅覆盖了 Bearer 缺失、成功、最终失败与前端任务隔离；尚未补 `SERVICE_API_DISABLED`、Bearer 格式错误、错误 token 等负向回归，协议边界仍有测试空白。
+  - 当前访问边界实际是“共享 service-api 调用链路”级别，而不是“按 Bearer token 粒度隔离任务”；如果后续要给多个内部服务分发不同 token，需要补 caller identity / token namespace 设计，而不能继续沿用当前单一 `service_api_submitter_id`。
+
 ### 前端全中文化补充记录 (2026-04-08 UTC)
 - 已将 `apps/service-frontend/` 中主要用户可见英文文案统一替换为中文，覆盖侧栏导航、顶部标题、总览页、任务工作台、AI 配置页、登录桥接页、帮助中心页及各类抽屉/横幅组件。
 - 已补充统一本地化格式化函数，集中处理任务状态、尝试状态、场景名、角色名、健康/注册状态和常见 API 错误文案，避免界面继续暴露英文枚举值或默认报错。

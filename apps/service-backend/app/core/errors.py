@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from http import HTTPStatus
 from typing import Any
 
 
@@ -16,6 +17,24 @@ class ServiceError(Exception):
 class AuthRequiredError(ServiceError):
     def __init__(self, message: str = "Hub session is required.") -> None:
         super().__init__(code="AUTH_REQUIRED", message=message, status_code=401)
+
+
+class ServiceApiAuthError(ServiceError):
+    def __init__(self, message: str = "Service API bearer token is invalid.") -> None:
+        super().__init__(
+            code="SERVICE_API_AUTH_REQUIRED",
+            message=message,
+            status_code=HTTPStatus.UNAUTHORIZED,
+        )
+
+
+class ServiceApiDisabledError(ServiceError):
+    def __init__(self, message: str = "Service API is disabled or not configured.") -> None:
+        super().__init__(
+            code="SERVICE_API_DISABLED",
+            message=message,
+            status_code=HTTPStatus.SERVICE_UNAVAILABLE,
+        )
 
 
 class ValidationFailedError(ServiceError):
