@@ -1,7 +1,11 @@
 import uuid
 from datetime import datetime
+from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
+
+ProviderMode = Literal["mock"]
+HubMode = Literal["local_fallback", "bootstrap_pending", "connected", "degraded"]
 
 
 class AiProfileUpsertRequest(BaseModel):
@@ -47,3 +51,46 @@ class AiProfileResponse(BaseModel):
 
 class AiProfileListResponse(BaseModel):
     items: list[AiProfileResponse]
+
+
+class ProviderOptionResponse(BaseModel):
+    provider_name: str
+    provider_label: str
+    supported_scenarios: list[str]
+
+
+class AiScenarioRuntimeResponse(BaseModel):
+    scenario_key: str
+    scenario_label: str
+    configured_profile_key: str | None = None
+    effective_profile_key: str | None = None
+    effective_profile_name: str | None = None
+    effective_provider_name: str | None = None
+    resolution_source: str | None = None
+    active_profile_count: int = 0
+    total_profile_count: int = 0
+
+
+class HubRuntimeStatusResponse(BaseModel):
+    status: str
+    registration_id: str | None = None
+    service_id: str | None = None
+    lease_ttl_sec: int | None = None
+    last_error: str | None = None
+    last_heartbeat_at: str | None = None
+    last_event_at: str | None = None
+
+
+class AiRuntimeSettingsResponse(BaseModel):
+    provider_mode: ProviderMode
+    default_provider_name: str
+    supported_providers: list[ProviderOptionResponse]
+    require_hub_auth: bool
+    hub_enabled: bool
+    hub_mode: HubMode
+    hub_api_url: str | None = None
+    hub_api_v1_prefix: str
+    service_public_base_url: str
+    hub_registration: HubRuntimeStatusResponse
+    hub_telemetry: HubRuntimeStatusResponse
+    scenarios: list[AiScenarioRuntimeResponse]

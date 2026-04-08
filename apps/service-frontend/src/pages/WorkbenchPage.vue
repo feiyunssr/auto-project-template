@@ -18,7 +18,7 @@ const taskStore = useTaskStore()
 const profileStore = useAiProfileStore()
 
 onMounted(async () => {
-  sessionStore.bootstrapSession()
+  await sessionStore.bootstrapSession()
   await healthStore.loadHealth()
   if (!sessionStore.isAuthenticated.value) {
     taskStore.stopPolling()

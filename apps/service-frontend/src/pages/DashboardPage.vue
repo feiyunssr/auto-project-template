@@ -21,7 +21,7 @@ const reviewCount = computed(() => taskStore.state.items.filter((item) => item.s
 const profileCount = computed(() => profileStore.state.items.length)
 
 onMounted(async () => {
-  sessionStore.bootstrapSession()
+  await sessionStore.bootstrapSession()
   await healthStore.loadHealth()
   if (!sessionStore.isAuthenticated.value) {
     taskStore.stopPolling()

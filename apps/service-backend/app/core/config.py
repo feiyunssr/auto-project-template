@@ -81,11 +81,18 @@ class Settings(BaseSettings):
     worker_poll_interval_ms: int = 500
     worker_max_jobs_per_cycle: int = 2
     worker_heartbeat_timeout_sec: int = 30
-    worker_heartbeat_path: str = str(Path(".runtime") / "service-worker.json")
+    worker_heartbeat_path: str = Field(
+        default=str(Path(".runtime") / "service-worker.json"),
+        validation_alias=AliasChoices(
+            "SERVICE_BACKEND_WORKER_HEARTBEAT_PATH",
+            "SERVICE_WORKER_HEARTBEAT_PATH",
+        ),
+    )
     hub_service_credentials_path: str = Field(
         default=str(Path(".runtime") / "hub-service-credentials.json"),
         validation_alias=AliasChoices(
             "SERVICE_BACKEND_HUB_SERVICE_CREDENTIALS_PATH",
+            "SERVICE_WORKER_HUB_SERVICE_CREDENTIALS_PATH",
             "HUB_SERVICE_CREDENTIALS_PATH",
         ),
     )

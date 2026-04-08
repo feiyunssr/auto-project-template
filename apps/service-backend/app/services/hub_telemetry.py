@@ -11,6 +11,12 @@ from typing import Any, Protocol
 
 import httpx
 
+from app.services.hub_bootstrap import (
+    HubBootstrapCredentials,
+    load_hub_bootstrap_credentials,
+    write_hub_bootstrap_credentials,
+)
+
 logger = logging.getLogger(__name__)
 
 
@@ -49,6 +55,9 @@ class HubTelemetryService:
         self.instance_id = instance_id
         self.client_factory = client_factory or httpx.AsyncClient
         self.credentials_path = Path(settings.hub_service_credentials_path)
+        self.hub_api_url = settings.hub_api_url
+        self.hub_api_v1_prefix = settings.hub_api_v1_prefix
+        self.service_key = settings.service_key
         self.service_id = settings.hub_service_id
         self.service_token = settings.hub_service_token
         self._load_credentials_from_file(update_snapshot=False)
@@ -62,23 +71,42 @@ class HubTelemetryService:
     @property
     def is_configured(self) -> bool:
         self._load_credentials_from_file()
-        return bool(self.settings.hub_api_url and self.service_id and self.service_token)
+        return bool(self.hub_api_url and self.service_id and self.service_token)
 
-    def configure_credentials(self, service_id: str, service_token: str) -> None:
+    @property
+    def hub_enabled(self) -> bool:
+        self._load_credentials_from_file()
+        return bool(self.hub_api_url)
+
+    def configure_credentials(
+        self,
+        service_id: str,
+        service_token: str,
+        *,
+        hub_api_url: str | None = None,
+        hub_api_v1_prefix: str | None = None,
+        service_key: str | None = None,
+    ) -> None:
         self.service_id = service_id
         self.service_token = service_token
+        if hub_api_url:
+            self.hub_api_url = hub_api_url
+        if hub_api_v1_prefix:
+            self.hub_api_v1_prefix = hub_api_v1_prefix
+        if service_key:
+            self.service_key = service_key
         self.snapshot_state.service_id = service_id
         self.snapshot_state.status = "pending"
         self.snapshot_state.last_error = None
-        self.credentials_path.parent.mkdir(parents=True, exist_ok=True)
-        self.credentials_path.write_text(
-            json.dumps(
-                {
-                    "service_id": service_id,
-                    "service_token": service_token,
-                }
+        write_hub_bootstrap_credentials(
+            self.credentials_path,
+            HubBootstrapCredentials(
+                service_id=service_id,
+                service_token=service_token,
+                hub_api_url=self.hub_api_url,
+                hub_api_v1_prefix=self.hub_api_v1_prefix,
+                service_key=self.service_key,
             ),
-            encoding="utf-8",
         )
 
     async def start(self) -> None:
@@ -219,7 +247,7 @@ class HubTelemetryService:
 
         try:
             async with self.client_factory(
-                base_url=self.settings.hub_api_url,
+                base_url=self.hub_api_url,
                 timeout=self.settings.hub_request_timeout_seconds,
             ) as client:
                 response = await client.post(
@@ -239,25 +267,22 @@ class HubTelemetryService:
         return True
 
     def _telemetry_path(self, suffix: str) -> str:
-        prefix = self.settings.hub_api_v1_prefix.rstrip("/")
+        prefix = self.hub_api_v1_prefix.rstrip("/")
         return f"{prefix}/services/{self.service_id}{suffix}"
 
     def _load_credentials_from_file(self, *, update_snapshot: bool = True) -> None:
-        if not self.credentials_path.exists():
+        payload = load_hub_bootstrap_credentials(self.credentials_path)
+        if payload is None:
             return
-        try:
-            payload = json.loads(self.credentials_path.read_text(encoding="utf-8"))
-        except (OSError, ValueError) as exc:
-            logger.warning("hub_telemetry_credentials_load_failed error=%s", exc)
-            return
-
-        service_id = payload.get("service_id")
-        service_token = payload.get("service_token")
-        if not service_id or not service_token:
-            return
-
-        self.service_id = str(service_id)
-        self.service_token = str(service_token)
+        self.service_id = payload.service_id
+        self.service_token = payload.service_token
+        if payload.hub_api_url:
+            self.hub_api_url = payload.hub_api_url
+        self.hub_api_v1_prefix = payload.hub_api_v1_prefix
+        if payload.service_key:
+            self.service_key = payload.service_key
+        if update_snapshot and hasattr(self, "snapshot_state"):
+            self.snapshot_state.service_id = self.service_id
         if update_snapshot and hasattr(self, "snapshot_state"):
             self.snapshot_state.service_id = self.service_id
 

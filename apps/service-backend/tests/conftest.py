@@ -7,8 +7,10 @@ from fastapi.testclient import TestClient
 def _build_client(tmp_path, monkeypatch, require_hub_auth: bool) -> Iterator[TestClient]:
     database_path = tmp_path / "service-test.db"
     heartbeat_path = tmp_path / "service-worker.json"
+    credentials_path = tmp_path / "hub-service-credentials.json"
     monkeypatch.setenv("SERVICE_BACKEND_DATABASE_URL", f"sqlite+aiosqlite:///{database_path}")
     monkeypatch.setenv("SERVICE_BACKEND_WORKER_HEARTBEAT_PATH", str(heartbeat_path))
+    monkeypatch.setenv("SERVICE_BACKEND_HUB_SERVICE_CREDENTIALS_PATH", str(credentials_path))
     monkeypatch.setenv("SERVICE_BACKEND_RUN_EMBEDDED_WORKER", "true")
     monkeypatch.setenv("SERVICE_BACKEND_ENABLE_SERVICE_API", "true")
     monkeypatch.setenv("SERVICE_BACKEND_SERVICE_API_BEARER_TOKEN", "test-service-token")

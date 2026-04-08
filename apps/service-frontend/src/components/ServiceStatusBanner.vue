@@ -51,7 +51,8 @@ const props = defineProps<{
     | null;
 }>();
 
-const { state: sessionState } = useHubSessionStore();
+const sessionStore = useHubSessionStore();
+const { state: sessionState } = sessionStore;
 
 const healthTone = computed(() => {
   if (props.error) return "danger";
@@ -75,7 +76,6 @@ const description = computed(() => {
 });
 
 function redirectToLogin() {
-  const loginUrl = sessionState.session?.loginUrl ?? import.meta.env.VITE_HUB_LOGIN_URL ?? "/login";
-  window.location.href = loginUrl;
+  window.location.href = sessionStore.loginUrl.value;
 }
 </script>

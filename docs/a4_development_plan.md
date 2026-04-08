@@ -259,6 +259,38 @@
   - 页面入口应是独立导航项，同时在关键页面提供 contextual help，而不是把所有帮助都压在一个页面里。
 - 后续若进入实现阶段，默认新增一个路由化帮助页面，而不是把教程内容塞进 Dashboard Hero 或登录页说明文案。
 
+### 子服务自动接通补齐记录 (2026-04-08 UTC)
+- 已将模板仓库按 `generate-creative-video` 同一套协议补齐 Hub 自动接通链路，覆盖的不只是 backend telemetry，还包括真正会被 Hub 访问的前端入口与共享网关代理层。
+- backend 已新增：
+  - `GET /.well-known/ai-auto-manifest.json`
+  - `POST /.well-known/ai-auto-bootstrap`
+  - 运行时 bootstrap 凭证读写封装 `app/services/hub_bootstrap.py`
+  - `GET /api/v1/settings/runtime`，用于直接查看 registration / telemetry / hub_mode
+- registration 已改为兼容两种模式：
+  - 内部注册模式：`SERVICE_BACKEND_HUB_API_URL + SERVICE_BACKEND_HUB_SERVICE_KEY`
+  - 自动接通模式：Hub 先发现 manifest，再向 bootstrap 端点推送 `service_id + service_token + hub_api_url`
+- frontend 与网关已补透传：
+  - Vite dev server 代理 `/.well-known/*`
+  - nginx 模板代理 `/.well-known/*` 与真实 `/healthz`
+- 本地开发启动脚本已调整：
+  - 默认把 `SERVICE_BACKEND_SERVICE_PUBLIC_BASE_URL` 指向前端入口 `http://127.0.0.1:11011`
+  - 默认注入 `VITE_HUB_API_BASE_URL=http://127.0.0.1:10010/api/v1` 与 `VITE_HUB_LOGIN_URL=http://127.0.0.1:10011/login`
+  - backend / worker 共用 `.runtime/hub-service-credentials.json`
+- 已补回归测试覆盖：
+  - manifest 返回结构
+  - bootstrap 后 runtime 状态切换
+  - telemetry 从运行时凭证文件读取 `hub_api_url + hub_api_v1_prefix`
+
+### 登录桥与中文用户名修复记录 (2026-04-08 UTC)
+- 已把模板前端的 Hub 会话消费逻辑补齐为完整回跳模式：
+  - 读取 Hub 登录页回传的 `hub_access_token` / `hub_login_url`
+  - 立即调用 Hub `/auth/me` 校验当前登录态
+  - 仅在校验成功后建立前端会话并构造回跳登录地址
+- 已修复中文用户名透传导致浏览器 `fetch` 在构造请求头阶段报错的问题：
+  - 前端改为发送 `X-Hub-User-Name-B64`
+  - backend 优先解码 `X-Hub-User-Name-B64`，回退兼容原始 `X-Hub-User-Name`
+- 已同步要求 Hub 侧白名单加入模板前端 origin `http://127.0.0.1:11011` / `http://localhost:11011`，否则 Hub 登录桥不会把用户放行到该子服务。
+
 ### 服务间 API 调用能力记录 (2026-04-08 UTC)
 - 已新增面向内部服务的独立异步任务接口：
   - `POST /api/v1/service-api/tasks`

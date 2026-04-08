@@ -34,6 +34,7 @@ def _build_service(recorder: list[dict]) -> HubTelemetryService:
         hub_api_url="https://hub.example.test",
         hub_service_id="00000000-0000-0000-0000-000000000123",
         hub_service_token="secret-token",
+        hub_service_credentials_path="/tmp/auto-project-template-missing-hub-service-credentials.json",
     )
     return HubTelemetryService(
         settings,
@@ -83,8 +84,13 @@ async def test_emit_job_failed_posts_error_details_to_hub() -> None:
 
 
 @pytest.mark.asyncio
-async def test_emit_job_event_is_noop_when_hub_credentials_missing() -> None:
-    service = HubTelemetryService(Settings(), instance_id="instance-1")
+async def test_emit_job_event_is_noop_when_hub_credentials_missing(tmp_path) -> None:
+    service = HubTelemetryService(
+        Settings(
+            hub_service_credentials_path=str(tmp_path / "missing-hub-service-credentials.json"),
+        ),
+        instance_id="instance-1",
+    )
 
     ok = await service.emit_job_succeeded(
         job_id="job-1",
@@ -108,13 +114,14 @@ async def test_emit_heartbeat_reads_credentials_from_runtime_file(tmp_path) -> N
             {
                 "service_id": "00000000-0000-0000-0000-000000000999",
                 "service_token": "runtime-secret",
+                "hub_api_url": "https://hub.example.test",
+                "hub_api_v1_prefix": "/api/runtime",
             }
         ),
         encoding="utf-8",
     )
     service = HubTelemetryService(
         Settings(
-            hub_api_url="https://hub.example.test",
             hub_service_credentials_path=str(credentials_path),
         ),
         instance_id="instance-1",
@@ -124,5 +131,5 @@ async def test_emit_heartbeat_reads_credentials_from_runtime_file(tmp_path) -> N
     ok = await service.emit_heartbeat()
 
     assert ok is True
-    assert recorder[0]["path"] == "/api/v1/services/00000000-0000-0000-0000-000000000999/heartbeat"
+    assert recorder[0]["path"] == "/api/runtime/services/00000000-0000-0000-0000-000000000999/heartbeat"
     assert recorder[0]["headers"]["Authorization"] == "Bearer runtime-secret"

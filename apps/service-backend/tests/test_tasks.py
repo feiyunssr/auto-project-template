@@ -20,6 +20,24 @@ def wait_for_status(client, job_id: str, expected: set[str], timeout_sec: float 
     raise AssertionError(f"job {job_id} did not reach {expected} within {timeout_sec}s")
 
 
+def wait_for_status_with_headers(
+    client,
+    job_id: str,
+    expected: set[str],
+    headers: dict[str, str],
+    timeout_sec: float = 5.0,
+):
+    started = time.time()
+    while time.time() - started < timeout_sec:
+        response = client.get(f"/api/v1/tasks/{job_id}", headers=headers)
+        assert response.status_code == 200, response.text
+        payload = response.json()
+        if payload["status"] in expected:
+            return payload
+        time.sleep(0.1)
+    raise AssertionError(f"job {job_id} did not reach {expected} within {timeout_sec}s")
+
+
 def wait_for_service_api_status(client, job_id: str, expected: set[str], timeout_sec: float = 5.0):
     started = time.time()
     while time.time() - started < timeout_sec:
@@ -158,6 +176,27 @@ def test_task_endpoints_require_hub_session_when_hub_auth_enabled(auth_required_
     assert response.status_code == 401, response.text
     payload = response.json()
     assert payload["code"] == "AUTH_REQUIRED"
+
+
+def test_task_endpoints_accept_base64_encoded_hub_user_name(client):
+    headers = {
+        "X-Hub-User-Id": "user-2",
+        "X-Hub-User-Name-B64": "6Zu25LiA",
+        "X-Hub-Role": "operator",
+    }
+    response = client.post(
+        "/api/v1/tasks",
+        json={
+            "scenario_key": "general",
+            "title": "Unicode submitter",
+            "input_payload": {"content": "hello world"},
+        },
+        headers=headers,
+    )
+    assert response.status_code == 200, response.text
+
+    detail = wait_for_status_with_headers(client, response.json()["id"], {"succeeded"}, headers)
+    assert detail["submitted_by_name"] == "零一"
 
 
 def test_ai_profile_endpoints_allow_local_access_when_hub_auth_disabled(client):

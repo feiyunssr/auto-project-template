@@ -15,6 +15,10 @@ export default defineConfig(({ mode }) => {
           target: proxyTarget,
           changeOrigin: true,
         },
+        '/.well-known': {
+          target: proxyTarget,
+          changeOrigin: true,
+        },
         '/healthz': {
           target: proxyTarget,
           changeOrigin: true,

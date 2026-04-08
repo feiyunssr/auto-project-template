@@ -13,8 +13,15 @@ class AiProfileRepository:
     def __init__(self, session: AsyncSession) -> None:
         self.session = session
 
-    async def list_profiles(self, scenario_key: str | None = None) -> Sequence[ServiceAiProfile]:
-        statement = select(ServiceAiProfile).where(ServiceAiProfile.is_active.is_(True))
+    async def list_profiles(
+        self,
+        scenario_key: str | None = None,
+        *,
+        include_inactive: bool = False,
+    ) -> Sequence[ServiceAiProfile]:
+        statement = select(ServiceAiProfile)
+        if not include_inactive:
+            statement = statement.where(ServiceAiProfile.is_active.is_(True))
         if scenario_key:
             statement = statement.where(ServiceAiProfile.scenario_key == scenario_key)
         statement = statement.order_by(ServiceAiProfile.is_default.desc(), ServiceAiProfile.updated_at.desc())

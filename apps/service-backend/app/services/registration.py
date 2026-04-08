@@ -9,6 +9,7 @@ from uuid import uuid4
 import httpx
 
 from app.core.config import Settings
+from app.services.hub_bootstrap import load_hub_bootstrap_credentials
 from app.services.hub_telemetry import HubTelemetryService
 
 logger = logging.getLogger(__name__)
@@ -35,11 +36,7 @@ class HubRegistrationService:
         self.instance_id = instance_id
         self.hub_telemetry = hub_telemetry
         self.snapshot_state = RegistrationSnapshot(
-            status=(
-                "degraded"
-                if not settings.hub_api_url or not settings.hub_service_key
-                else "pending"
-            )
+            status=self._initial_status(),
         )
         self._task: asyncio.Task | None = None
         self._stop = asyncio.Event()
@@ -47,13 +44,15 @@ class HubRegistrationService:
     async def start(self) -> None:
         if self._task is None:
             self._stop.clear()
-            if self.settings.hub_api_url and self.settings.hub_service_key:
+            if self._can_use_internal_registration():
                 try:
                     await self._sync_once()
                 except Exception as exc:  # noqa: BLE001
                     self.snapshot_state.status = "degraded"
                     self.snapshot_state.last_error = str(exc)
                     logger.warning("hub_registration_initial_sync_failed error=%s", exc)
+            else:
+                self.refresh_bootstrap_state()
             self._task = asyncio.create_task(self._run_loop(), name="hub-registration-loop")
 
     async def stop(self) -> None:
@@ -66,10 +65,23 @@ class HubRegistrationService:
     def snapshot(self) -> dict[str, str | int | None]:
         return asdict(self.snapshot_state)
 
+    def refresh_bootstrap_state(self) -> None:
+        if self._has_bootstrap_credentials():
+            self.snapshot_state.status = "healthy"
+            self.snapshot_state.last_error = None
+            return
+        if self._effective_hub_api_url():
+            self.snapshot_state.status = "pending"
+            self.snapshot_state.last_error = "Waiting for Hub auto-onboarding bootstrap credentials."
+            return
+        self.snapshot_state.status = "degraded"
+        self.snapshot_state.last_error = "HUB_API_URL or bootstrap credentials are not configured."
+
     async def _run_loop(self) -> None:
-        if not self.settings.hub_api_url or not self.settings.hub_service_key:
-            self.snapshot_state.last_error = "HUB_API_URL or HUB_SERVICE_KEY is not configured."
-            logger.warning("hub_registration_disabled reason=%s", self.snapshot_state.last_error)
+        if not self._can_use_internal_registration():
+            while not self._stop.is_set():
+                self.refresh_bootstrap_state()
+                await asyncio.sleep(max(self.settings.heartbeat_interval_sec, 5))
             return
 
         async with httpx.AsyncClient(base_url=self.settings.hub_api_url, timeout=5.0) as client:
@@ -156,3 +168,30 @@ class HubRegistrationService:
             self.snapshot_state.registration_id,
             self.snapshot_state.last_heartbeat_at,
         )
+
+    def _effective_hub_api_url(self) -> str | None:
+        if self.settings.hub_api_url:
+            return self.settings.hub_api_url
+        if self.hub_telemetry is not None and self.hub_telemetry.hub_enabled:
+            return self.hub_telemetry.hub_api_url
+        credentials = load_hub_bootstrap_credentials(self.settings.hub_service_credentials_path)
+        if credentials is None:
+            return None
+        return credentials.hub_api_url
+
+    def _has_bootstrap_credentials(self) -> bool:
+        if self.hub_telemetry is not None and self.hub_telemetry.is_configured:
+            return True
+        return load_hub_bootstrap_credentials(self.settings.hub_service_credentials_path) is not None
+
+    def _can_use_internal_registration(self) -> bool:
+        return bool(self.settings.hub_api_url and self.settings.hub_service_key)
+
+    def _initial_status(self) -> str:
+        if self._can_use_internal_registration():
+            return "pending"
+        if self._has_bootstrap_credentials():
+            return "healthy"
+        if self._effective_hub_api_url():
+            return "pending"
+        return "degraded"

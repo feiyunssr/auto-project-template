@@ -14,6 +14,7 @@ from fastapi.responses import JSONResponse
 import app.models  # noqa: F401
 from app.api.router import api_router
 from app.api.routes.ops import router as ops_router
+from app.api.routes.well_known import router as well_known_router
 from app.core.config import Settings, get_settings
 from app.core.errors import ServiceError
 from app.core.logging import configure_logging
@@ -134,6 +135,17 @@ def create_app() -> FastAPI:
     )
     app.include_router(api_router, prefix=settings.api_v1_prefix)
     app.include_router(ops_router)
+    app.include_router(well_known_router)
+
+    @app.get("/")
+    async def root() -> dict[str, str]:
+        return {
+            "service": settings.service_key,
+            "dashboard": f"{settings.api_v1_prefix}/tasks",
+            "healthz": "/healthz",
+            "docs": "/docs",
+        }
+
     return app
 
 

@@ -22,6 +22,8 @@ export interface HubSession {
   loginUrl?: string;
 }
 
+export type HubSessionSource = "hub" | "local_fallback" | "missing";
+
 export interface TaskSummary {
   id: string;
   job_no: string;

@@ -131,6 +131,13 @@ bash scripts/dev.sh stop
 
 - 后端：`SERVICE_BACKEND_REQUIRE_HUB_AUTH=true`
 - 前端：`VITE_REQUIRE_HUB_AUTH=true`
+- 前端：`VITE_HUB_API_BASE_URL=http://127.0.0.1:10010/api/v1`
+- 前端：`VITE_HUB_LOGIN_URL=http://127.0.0.1:10011/login`
+
+说明：
+
+- Hub 回跳时会把 `hub_access_token` / `hub_login_url` 放进 URL，前端会立即调用 Hub `/auth/me` 校验并消费掉这些临时参数
+- 子服务后端现在兼容 `X-Hub-User-Name-B64`，避免中文用户名直接作为请求头时触发浏览器 `non ISO-8859-1 code point` 错误
 
 如果要接入真实 Hub 注册接口：
 
@@ -150,6 +157,20 @@ bash scripts/dev.sh stop
 - backend 会通过 `/internal/services/register` 自动换取 `service_id + service_token`
 - 换取到的 telemetry 凭证会写入 `.runtime/hub-service-credentials.json`
 - backend 与独立 worker 会自动复用这份凭证，把 `heartbeat`、`job_succeeded`、`job_failed` 发到 Hub
+
+如果要走“自动接通模式”，也就是在 Hub 里只填子服务 URL、不手工填写凭证，现在模板已经补齐了子服务侧约定：
+
+- `GET /.well-known/ai-auto-manifest.json`
+- `POST /.well-known/ai-auto-bootstrap`
+- 前端开发入口 `http://127.0.0.1:11011` 会代理 `/.well-known/*` 和 `/healthz` 到 backend
+- `scripts/dev.sh` 默认把 `SERVICE_BACKEND_SERVICE_PUBLIC_BASE_URL` 设为前端入口 `:11011`，便于 Hub 直接登记用户实际访问的 URL
+- `scripts/dev.sh` 也会默认注入 `VITE_HUB_API_BASE_URL=http://127.0.0.1:10010/api/v1` 和 `VITE_HUB_LOGIN_URL=http://127.0.0.1:10011/login`
+
+说明：
+
+- Hub 自动推送的运行时凭证仍会落盘到 `.runtime/hub-service-credentials.json`
+- 不需要让最终用户手工填写 `SERVICE_BACKEND_HUB_SERVICE_ID` / `SERVICE_BACKEND_HUB_SERVICE_TOKEN`
+- 如果你注册到共享网关域名，网关也必须放通 `/.well-known/*` 与 `/healthz`
 
 如果你不走内部 bootstrap，也仍可手工配置以下变量作为覆盖：
 

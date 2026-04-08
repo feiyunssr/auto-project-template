@@ -10,7 +10,7 @@ const sessionStore = useHubSessionStore()
 const profileStore = useAiProfileStore()
 
 onMounted(async () => {
-  sessionStore.bootstrapSession()
+  await sessionStore.bootstrapSession()
   if (!sessionStore.isAuthenticated.value) {
     return
   }

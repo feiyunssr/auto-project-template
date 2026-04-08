@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import base64
+
 from hmac import compare_digest
 
 from fastapi import Header, Request
@@ -14,20 +16,22 @@ from app.schemas.service_api import ServiceApiAuthContext
 async def get_auth_context(
     x_hub_user_id: str | None = Header(default=None),
     x_hub_user_name: str | None = Header(default=None),
+    x_hub_user_name_b64: str | None = Header(default=None),
     x_hub_role: str | None = Header(default=None),
 ) -> AuthContext:
     settings = get_settings()
+    decoded_hub_user_name = _decode_hub_user_name(x_hub_user_name_b64, fallback=x_hub_user_name)
     if not settings.require_hub_auth:
         return AuthContext(
             hub_user_id=x_hub_user_id or settings.dev_hub_user_id,
-            hub_user_name=x_hub_user_name or settings.dev_hub_user_name,
+            hub_user_name=decoded_hub_user_name or settings.dev_hub_user_name,
             role=x_hub_role or settings.dev_hub_role,
         )
     if not x_hub_user_id:
         raise AuthRequiredError("Hub session missing or expired.")
     return AuthContext(
         hub_user_id=x_hub_user_id,
-        hub_user_name=x_hub_user_name,
+        hub_user_name=decoded_hub_user_name,
         role=x_hub_role,
     )
 
@@ -54,6 +58,20 @@ async def get_service_api_auth_context(
 
 def get_runtime(request: Request):
     return request.app.state.runtime
+
+
+def _decode_hub_user_name(
+    encoded_value: str | None,
+    *,
+    fallback: str | None,
+) -> str | None:
+    if not encoded_value:
+        return fallback
+    try:
+        payload = base64.b64decode(encoded_value.encode("ascii"), validate=True)
+        return payload.decode("utf-8")
+    except Exception:
+        return fallback
 
 
 __all__ = ["get_auth_context", "get_db_session", "get_runtime", "get_service_api_auth_context"]

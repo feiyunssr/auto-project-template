@@ -8,10 +8,10 @@ import { roleLabel } from '../utils/format'
 const sessionStore = useHubSessionStore()
 
 onMounted(() => {
-  sessionStore.bootstrapSession()
+  void sessionStore.bootstrapSession()
 })
 
-const loginLabel = computed(() => sessionStore.state.session?.loginUrl ?? import.meta.env.VITE_HUB_LOGIN_URL ?? '/login')
+const loginLabel = computed(() => sessionStore.loginUrl.value)
 
 function handleLogin() {
   window.location.href = loginLabel.value

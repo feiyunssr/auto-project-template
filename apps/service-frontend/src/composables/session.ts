@@ -5,5 +5,5 @@ export function useSession() {
 }
 
 export async function restoreSession() {
-  useHubSessionStore().bootstrapSession()
+  await useHubSessionStore().bootstrapSession()
 }
