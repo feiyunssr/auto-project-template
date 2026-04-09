@@ -24,7 +24,10 @@ services:
       dockerfile: apps/service-backend/Dockerfile
     restart: unless-stopped
     environment:
+      APP_SCHEME: ${APP_SCHEME:-http}
+      APP_HOST_IP: ${APP_HOST_IP:-192.168.1.242}
       SERVICE_BACKEND_DATABASE_URL: ${SHARED_SERVICE_BACKEND_DATABASE_URL:-postgresql+psycopg://auto_project_template:change-me@postgres:5432/auto_project_template}
+      SERVICE_BACKEND_SERVICE_PUBLIC_BASE_URL: ${SERVICE_BACKEND_SERVICE_PUBLIC_BASE_URL:-${APP_SCHEME:-http}://${APP_HOST_IP:-192.168.1.242}:11011}
       SERVICE_BACKEND_RUN_EMBEDDED_WORKER: "false"
       SERVICE_BACKEND_WORKER_HEARTBEAT_PATH: /runtime/service-worker.json
       SERVICE_BACKEND_HUB_API_URL: ${SERVICE_BACKEND_HUB_API_URL:-}
@@ -48,6 +51,8 @@ services:
       dockerfile: apps/service-worker/Dockerfile
     restart: unless-stopped
     environment:
+      APP_SCHEME: ${APP_SCHEME:-http}
+      APP_HOST_IP: ${APP_HOST_IP:-192.168.1.242}
       SERVICE_WORKER_DATABASE_URL: ${SHARED_SERVICE_WORKER_DATABASE_URL:-postgresql+psycopg://auto_project_template:change-me@postgres:5432/auto_project_template}
       SERVICE_WORKER_HEARTBEAT_PATH: /runtime/service-worker.json
       SERVICE_BACKEND_HUB_API_URL: ${SERVICE_BACKEND_HUB_API_URL:-}
@@ -68,8 +73,12 @@ services:
       dockerfile: infra/nginx/Dockerfile
       args:
         VITE_API_BASE_URL: ${SHARED_VITE_API_BASE_URL:-/api/v1}
+        VITE_HUB_LOGIN_URL: ${VITE_HUB_LOGIN_URL:-${APP_SCHEME:-http}://${APP_HOST_IP:-192.168.1.242}:10011/login}
+        VITE_HUB_API_BASE_URL: ${VITE_HUB_API_BASE_URL:-${APP_SCHEME:-http}://${APP_HOST_IP:-192.168.1.242}:10010/api/v1}
     restart: unless-stopped
     environment:
+      APP_SCHEME: ${APP_SCHEME:-http}
+      APP_HOST_IP: ${APP_HOST_IP:-192.168.1.242}
       APP_DOMAIN: ${APP_DOMAIN:-auto-project-template.test}
       BACKEND_UPSTREAM: ${BACKEND_UPSTREAM:-backend:11010}
       TLS_CERT_PATH: ${TLS_CERT_PATH:-/etc/nginx/certs/tls.fullchain.crt}

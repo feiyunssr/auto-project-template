@@ -1,9 +1,14 @@
+import os
 from functools import lru_cache
 from pathlib import Path
 from typing import Literal
 
 from pydantic import AliasChoices, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+
+DEFAULT_APP_SCHEME = os.getenv("APP_SCHEME", "http")
+DEFAULT_APP_HOST_IP = os.getenv("APP_HOST_IP", "192.168.1.242")
 
 
 class Settings(BaseSettings):
@@ -64,9 +69,18 @@ class Settings(BaseSettings):
     dev_hub_user_id: str = "local-dev-user"
     dev_hub_user_name: str = "Local Operator"
     dev_hub_role: str = "operator"
-    service_public_base_url: str = "http://127.0.0.1:11010"
+    service_public_base_url: str = os.getenv(
+        "SERVICE_BACKEND_SERVICE_PUBLIC_BASE_URL",
+        f"{DEFAULT_APP_SCHEME}://{DEFAULT_APP_HOST_IP}:11011",
+    )
     cors_allowed_origins: str = (
-        "http://127.0.0.1:11011,http://localhost:11011,http://127.0.0.1:4173,http://localhost:4173"
+        os.getenv(
+            "SERVICE_BACKEND_CORS_ALLOWED_ORIGINS",
+            (
+                f"{DEFAULT_APP_SCHEME}://{DEFAULT_APP_HOST_IP}:11011,"
+                f"{DEFAULT_APP_SCHEME}://{DEFAULT_APP_HOST_IP}:4173"
+            ),
+        )
     )
     cors_allowed_origin_regex: str = (
         r"^https?://(localhost|127\.0\.0\.1|\[::1\]|\d{1,3}(?:\.\d{1,3}){3}|\[[0-9a-fA-F:]+\])(?::\d+)?$"

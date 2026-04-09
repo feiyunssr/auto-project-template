@@ -136,6 +136,8 @@ class HubTelemetryService:
                     "environment": self.settings.environment,
                     "instance_id": self.instance_id,
                     "service_key": self.settings.service_key,
+                    "service_public_base_url": self.settings.service_public_base_url,
+                    "healthcheck_url": f"{self.settings.service_public_base_url.rstrip('/')}/healthz",
                 },
             },
         )

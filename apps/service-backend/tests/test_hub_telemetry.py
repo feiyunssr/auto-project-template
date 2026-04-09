@@ -55,6 +55,8 @@ async def test_emit_heartbeat_posts_to_hub_telemetry_endpoint() -> None:
     assert recorder[0]["headers"]["Authorization"] == "Bearer secret-token"
     assert recorder[0]["json"]["service_version"] == "0.2.0"
     assert recorder[0]["json"]["metadata"]["instance_id"] == "instance-1"
+    assert recorder[0]["json"]["metadata"]["service_public_base_url"] == "http://192.168.1.242:11011"
+    assert recorder[0]["json"]["metadata"]["healthcheck_url"] == "http://192.168.1.242:11011/healthz"
     assert service.snapshot()["status"] == "healthy"
 
 

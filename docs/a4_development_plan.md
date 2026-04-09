@@ -218,6 +218,15 @@
   - 默认开发模式由 `apps/service-worker/service_worker/main.py` 独立运行。
   - backend 通过 heartbeat 文件读取 worker 状态并透传到 `/healthz`。
 - 已补齐面向当前 `ai-auto` Hub 的 telemetry 上报路径：
+
+### IP 统一基线补充记录 (2026-04-09 UTC)
+- 已把模板当前默认 IP 基线统一收敛到 `APP_SCHEME=http` 与 `APP_HOST_IP=192.168.1.242`。
+- `.env.example`、`docker-compose.yml`、`scripts/dev.sh`、`apps/service-backend/app/core/config.py`、`apps/service-frontend/vite.config.ts`、`infra/nginx/Dockerfile` 已同步改为从该基线派生：
+  - 服务公开入口 `http://192.168.1.242:11011`
+  - 后端 API `http://192.168.1.242:11010`
+  - Hub 登录页 `http://192.168.1.242:10011/login`
+  - Hub API `http://192.168.1.242:10010/api/v1`
+- 本轮目标是不改域名架构，只清理面向当前联调与用户入口的本地地址默认值；因此 `127.0.0.1` / `localhost` 不再作为模板默认公开 URL。
   - backend 会优先通过内部 bootstrap 接口自动换取 `service_id + service_token`，并周期上报 `heartbeat`
   - `SERVICE_BACKEND_HUB_SERVICE_KEY` 需与 Hub 侧 `HUB_BACKEND_INTERNAL_BOOTSTRAP_KEY` 保持一致，bootstrap 得到的凭证会落盘到 `.runtime/hub-service-credentials.json`
   - 任务执行成功与失败会向 Hub 发送 `job_succeeded` / `job_failed` 事件，并带上 `error_code` / `error_summary`
@@ -273,8 +282,8 @@
   - Vite dev server 代理 `/.well-known/*`
   - nginx 模板代理 `/.well-known/*` 与真实 `/healthz`
 - 本地开发启动脚本已调整：
-  - 默认把 `SERVICE_BACKEND_SERVICE_PUBLIC_BASE_URL` 指向前端入口 `http://127.0.0.1:11011`
-  - 默认注入 `VITE_HUB_API_BASE_URL=http://127.0.0.1:10010/api/v1` 与 `VITE_HUB_LOGIN_URL=http://127.0.0.1:10011/login`
+  - 默认把 `SERVICE_BACKEND_SERVICE_PUBLIC_BASE_URL` 指向前端入口 `http://192.168.1.242:11011`
+  - 默认注入 `VITE_HUB_API_BASE_URL=http://192.168.1.242:10010/api/v1` 与 `VITE_HUB_LOGIN_URL=http://192.168.1.242:10011/login`
   - backend / worker 共用 `.runtime/hub-service-credentials.json`
 - 已补回归测试覆盖：
   - manifest 返回结构
@@ -289,7 +298,7 @@
 - 已修复中文用户名透传导致浏览器 `fetch` 在构造请求头阶段报错的问题：
   - 前端改为发送 `X-Hub-User-Name-B64`
   - backend 优先解码 `X-Hub-User-Name-B64`，回退兼容原始 `X-Hub-User-Name`
-- 已同步要求 Hub 侧白名单加入模板前端 origin `http://127.0.0.1:11011` / `http://localhost:11011`，否则 Hub 登录桥不会把用户放行到该子服务。
+- 已同步要求 Hub 侧白名单加入模板前端 origin `http://192.168.1.242:11011`，否则 Hub 登录桥不会把用户放行到该子服务。
 
 ### 服务间 API 调用能力记录 (2026-04-08 UTC)
 - 已新增面向内部服务的独立异步任务接口：

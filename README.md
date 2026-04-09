@@ -94,10 +94,12 @@ cp .env.example .env
 
 默认本地开发值：
 
-- Backend: `http://127.0.0.1:11010`
-- Frontend: `http://127.0.0.1:11011`
+- Backend: `http://192.168.1.242:11010`
+- Frontend: `http://192.168.1.242:11011`
 - API 前缀：`/api/v1`
 - 默认数据库：`sqlite+aiosqlite:///./service.db`
+- 当前 IP 基线通过 `APP_SCHEME` 与 `APP_HOST_IP` 统一控制；需要切换部署机时只改这两个变量
+- 服务启动后的 Hub 心跳会自动回写当前 `SERVICE_BACKEND_SERVICE_PUBLIC_BASE_URL`，所以改完 IP 配置后执行一次 `bash scripts/dev.sh restart`，Hub 里的服务入口会自动从旧地址收敛到新地址
 
 ### 3. 启动
 
@@ -131,8 +133,8 @@ bash scripts/dev.sh stop
 
 - 后端：`SERVICE_BACKEND_REQUIRE_HUB_AUTH=true`
 - 前端：`VITE_REQUIRE_HUB_AUTH=true`
-- 前端：`VITE_HUB_API_BASE_URL=http://127.0.0.1:10010/api/v1`
-- 前端：`VITE_HUB_LOGIN_URL=http://127.0.0.1:10011/login`
+- 前端：`VITE_HUB_API_BASE_URL=http://192.168.1.242:10010/api/v1`
+- 前端：`VITE_HUB_LOGIN_URL=http://192.168.1.242:10011/login`
 
 说明：
 
@@ -162,9 +164,9 @@ bash scripts/dev.sh stop
 
 - `GET /.well-known/ai-auto-manifest.json`
 - `POST /.well-known/ai-auto-bootstrap`
-- 前端开发入口 `http://127.0.0.1:11011` 会代理 `/.well-known/*` 和 `/healthz` 到 backend
+- 前端开发入口 `http://192.168.1.242:11011` 会代理 `/.well-known/*` 和 `/healthz` 到 backend
 - `scripts/dev.sh` 默认把 `SERVICE_BACKEND_SERVICE_PUBLIC_BASE_URL` 设为前端入口 `:11011`，便于 Hub 直接登记用户实际访问的 URL
-- `scripts/dev.sh` 也会默认注入 `VITE_HUB_API_BASE_URL=http://127.0.0.1:10010/api/v1` 和 `VITE_HUB_LOGIN_URL=http://127.0.0.1:10011/login`
+- `scripts/dev.sh` 也会默认注入 `VITE_HUB_API_BASE_URL=http://192.168.1.242:10010/api/v1` 和 `VITE_HUB_LOGIN_URL=http://192.168.1.242:10011/login`
 
 说明：
 
@@ -199,7 +201,7 @@ bash scripts/dev.sh stop
 创建任务示例：
 
 ```bash
-curl -X POST http://127.0.0.1:11010/api/v1/service-api/tasks \
+curl -X POST http://192.168.1.242:11010/api/v1/service-api/tasks \
   -H 'Authorization: Bearer your-service-token' \
   -H 'Content-Type: application/json' \
   -d '{
@@ -224,7 +226,7 @@ curl -X POST http://127.0.0.1:11010/api/v1/service-api/tasks \
 轮询结果示例：
 
 ```bash
-curl http://127.0.0.1:11010/api/v1/service-api/tasks/<job_id>/result \
+curl http://192.168.1.242:11010/api/v1/service-api/tasks/<job_id>/result \
   -H 'Authorization: Bearer your-service-token'
 ```
 

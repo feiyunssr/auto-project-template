@@ -49,6 +49,24 @@ const statusLabel = computed(() => {
   return isAuthenticated.value ? '已连接 Hub' : '等待会话'
 })
 
+const hubHomeUrl = computed(() => {
+  const rawUrl = sessionStore.loginUrl.value
+
+  if (!rawUrl) {
+    return '/dashboard'
+  }
+
+  try {
+    const resolved = new URL(rawUrl, window.location.origin)
+    resolved.search = ''
+    resolved.hash = ''
+    resolved.pathname = resolved.pathname.replace(/\/login\/?$/, '/dashboard')
+    return resolved.toString()
+  } catch {
+    return rawUrl.replace(/\/login(?:\/)?(?:\?.*)?$/, '/dashboard')
+  }
+})
+
 function isActive(path: string) {
   return route.path === path || route.path.startsWith(`${path}/`)
 }
@@ -83,6 +101,7 @@ function isActive(path: string) {
         <RouterLink class="button button-primary sidebar-action" to="/login">
           {{ isAuthenticated ? '查看会话' : '去登录' }}
         </RouterLink>
+        <a class="button button-secondary sidebar-action" :href="hubHomeUrl">返回 Hub</a>
       </div>
     </aside>
 
